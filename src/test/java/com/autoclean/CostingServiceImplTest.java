@@ -85,3 +85,4 @@ public class CostingServiceImplTest {
         assertThrows(IllegalArgumentException.class, () -> costingService.estimateCost("srv-inexistente", lines));
     }
 }
+

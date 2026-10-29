@@ -72,3 +72,4 @@ public class ServiceCatalogServiceImpl implements ServiceTypeService {
         return repository.findAll();
     }
 }
+

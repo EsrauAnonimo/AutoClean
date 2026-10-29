@@ -103,3 +103,4 @@ public class AppointmentServiceImplTest {
                 () -> appointmentService.updateStatus(appointment.getId(), "IN_PROGRESS"));
     }
 }
+

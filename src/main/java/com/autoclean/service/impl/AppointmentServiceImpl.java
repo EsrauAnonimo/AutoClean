@@ -114,3 +114,4 @@ public class AppointmentServiceImpl implements AppointmentService {
         repository.save(appointment);
     }
 }
+
