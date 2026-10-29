@@ -28,3 +28,7 @@ replay_pid*
 .idea/
 *.iml
 .vscode/
+
+# Documentos de estudio locales (no se suben)
+ESTUDIO_LIDER.docx
+ESTUDIO_DEV1.docx
