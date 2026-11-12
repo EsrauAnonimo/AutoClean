@@ -5,117 +5,164 @@ import com.autoclean.model.ServiceType;
 import com.autoclean.service.ServiceFactory;
 import com.autoclean.ui.components.SimpleFormPanel;
 import com.autoclean.ui.theme.Theme;
-import java.awt.BorderLayout;
-import java.awt.FlowLayout;
+import java.util.ArrayList;
 import java.util.List;
-import javax.swing.JButton;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.table.DefaultTableModel;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.geometry.Pos;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 
 /**
- * Panel para la administración de tipos de servicio (CRUD).
+ * Panel JavaFX para la administración del catálogo de tipos de servicio (CRUD
+ * completo).
+ * Conserva toda la lógica de validación conectada a ServiceTypeService.
  */
-public class ServiceTypePanel extends JPanel {
+public class ServiceTypePanel extends BorderPane {
 
     private final ServiceTypeService serviceTypeService;
     private final SimpleFormPanel formPanel;
-    private final DefaultTableModel tableModel;
-    private final JTable table;
+    private final TableView<ServiceType> table;
+    private final ObservableList<ServiceType> tableData;
+    private final TextField txtFilter;
 
     public ServiceTypePanel() {
         this.serviceTypeService = ServiceFactory.getServiceTypeService();
-        setLayout(new BorderLayout(10, 10));
-        setBackground(Theme.BLANCO);
+        this.tableData = FXCollections.observableArrayList();
+        this.table = new TableView<>(tableData);
+        this.txtFilter = new TextField();
 
-        // Título superior
-        JLabel titleLabel = new JLabel("Catálogo de Tipos de Servicio");
-        Theme.styleTitleLabel(titleLabel);
-        add(titleLabel, BorderLayout.NORTH);
+        getStyleClass().add("content-area");
 
         // Formulario izquierdo
         formPanel = new SimpleFormPanel();
-        formPanel.addField("ID");
-        formPanel.addField("Nombre");
-        formPanel.addField("Descripción");
-        formPanel.addField("Precio");
+        formPanel.setPrefWidth(350);
+        formPanel.setMinWidth(320);
+        formPanel.setHeader("Catálogo de Servicios",
+                "Configure los paquetes de lavado, detallado y protección con su precio público.");
 
-        // Botones de acción
-        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 8));
-        buttonsPanel.setBackground(Theme.BLANCO);
+        formPanel.addField("ID", "Autogenerado o ej. SRV-005");
+        formPanel.addField("Nombre", "Ej. Lavado Detallado Premium");
+        formPanel.addField("Descripción", "Detalle de procesos incluidos");
+        formPanel.addField("Precio", "Valor base en pesos ($)");
 
-        JButton btnCreate = new JButton("Crear");
-        JButton btnUpdate = new JButton("Actualizar");
-        JButton btnDelete = new JButton("Eliminar");
-        JButton btnList = new JButton("Listar");
-        JButton btnClear = new JButton("Limpiar");
+        FlowPane buttonsPane = new FlowPane(8, 8);
+        Button btnCreate = new Button("＋ Crear");
+        Button btnFind = new Button("🔍 Consultar ID");
+        Button btnUpdate = new Button("✎ Actualizar");
+        Button btnDelete = new Button("🗑 Eliminar");
+        Button btnList = new Button("↻ Listar");
+        Button btnClear = new Button("Limpiar");
 
-        Theme.styleButton(btnCreate);
-        Theme.styleButton(btnUpdate);
-        Theme.styleSecondaryButton(btnDelete);
-        Theme.styleButton(btnList);
-        Theme.styleSecondaryButton(btnClear);
+        btnCreate.getStyleClass().add("btn-primary");
+        btnFind.getStyleClass().add("btn-secondary");
+        btnUpdate.getStyleClass().add("btn-dark");
+        btnDelete.getStyleClass().add("btn-danger");
+        btnList.getStyleClass().add("btn-secondary");
+        btnClear.getStyleClass().add("btn-secondary");
 
-        buttonsPanel.add(btnCreate);
-        buttonsPanel.add(btnUpdate);
-        buttonsPanel.add(btnDelete);
-        buttonsPanel.add(btnList);
-        buttonsPanel.add(btnClear);
+        buttonsPane.getChildren().addAll(btnCreate, btnUpdate, btnFind, btnDelete, btnList, btnClear);
+        formPanel.getChildren().add(buttonsPane);
 
-        JPanel leftPanel = new JPanel(new BorderLayout(5, 5));
-        leftPanel.setBackground(Theme.BLANCO);
-        leftPanel.add(formPanel, BorderLayout.CENTER);
-        leftPanel.add(buttonsPanel, BorderLayout.SOUTH);
-        add(leftPanel, BorderLayout.WEST);
+        // Tabla derecha
+        VBox tableCard = new VBox(12);
+        tableCard.getStyleClass().add("card");
+        HBox.setHgrow(tableCard, Priority.ALWAYS);
 
-        // Tabla de tipos de servicio
-        String[] columns = {"ID", "Nombre", "Descripción", "Precio"};
-        tableModel = new DefaultTableModel(columns, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
-        };
-        table = new JTable(tableModel);
-        Theme.styleTable(table);
+        HBox tableHeader = new HBox(12);
+        tableHeader.setAlignment(Pos.CENTER_LEFT);
+        VBox titleBox = new VBox(2);
+        Label lblTitle = new Label("Portafolio de Tipos de Servicio");
+        lblTitle.getStyleClass().add("card-title");
+        Label lblSub = new Label("Tarifario oficial para agendamiento de turnos y cálculo de costeo");
+        lblSub.getStyleClass().add("card-subtitle");
+        titleBox.getChildren().addAll(lblTitle, lblSub);
 
-        // Selección en tabla carga formulario
-        table.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting() && table.getSelectedRow() != -1) {
-                int row = table.getSelectedRow();
-                formPanel.setFieldText("ID", String.valueOf(tableModel.getValueAt(row, 0)));
-                formPanel.setFieldText("Nombre", String.valueOf(tableModel.getValueAt(row, 1)));
-                formPanel.setFieldText("Descripción", String.valueOf(tableModel.getValueAt(row, 2)));
-                formPanel.setFieldText("Precio", String.valueOf(tableModel.getValueAt(row, 3)));
-            }
-        });
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        add(new JScrollPane(table), BorderLayout.CENTER);
+        txtFilter.setPromptText("Buscar servicio por nombre o descripción...");
+        txtFilter.setPrefWidth(260);
+        txtFilter.getStyleClass().add("text-field");
+        txtFilter.textProperty().addListener((obs, oldV, newV) -> applyFilter(newV));
+
+        tableHeader.getChildren().addAll(titleBox, spacer, txtFilter);
+
+        configureTable();
+        VBox.setVgrow(table, Priority.ALWAYS);
+        tableCard.getChildren().addAll(tableHeader, table);
+
+        HBox mainLayout = new HBox(20, formPanel, tableCard);
+        HBox.setHgrow(tableCard, Priority.ALWAYS);
+        setCenter(mainLayout);
 
         // Eventos
-        btnCreate.addActionListener(e -> handleCreate());
-        btnUpdate.addActionListener(e -> handleUpdate());
-        btnDelete.addActionListener(e -> handleDelete());
-        btnList.addActionListener(e -> loadServices());
-        btnClear.addActionListener(e -> formPanel.clear());
+        btnCreate.setOnAction(e -> handleCreate());
+        btnFind.setOnAction(e -> handleFindById());
+        btnUpdate.setOnAction(e -> handleUpdate());
+        btnDelete.setOnAction(e -> handleDelete());
+        btnList.setOnAction(e -> loadServices());
+        btnClear.setOnAction(e -> {
+            formPanel.clear();
+            table.getSelectionModel().clearSelection();
+        });
 
-        // Carga inicial
         loadServices();
     }
 
-    /**
-     * Valida campos y crea un nuevo tipo de servicio.
-     */
+    private void configureTable() {
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        table.setPlaceholder(new Label("No hay servicios registrados en el catálogo."));
+
+        TableColumn<ServiceType, String> colId = new TableColumn<>("ID Servicio");
+        colId.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getId()));
+        colId.setMaxWidth(120);
+        colId.setMinWidth(90);
+
+        TableColumn<ServiceType, String> colName = new TableColumn<>("Nombre del Servicio");
+        colName.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getName()));
+        colName.setMinWidth(180);
+
+        TableColumn<ServiceType, String> colDesc = new TableColumn<>("Descripción Técnica");
+        colDesc.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getDescription()));
+        colDesc.setMinWidth(220);
+
+        TableColumn<ServiceType, String> colPrice = new TableColumn<>("Precio Público ($)");
+        colPrice.setCellValueFactory(
+                cell -> new SimpleStringProperty(String.format("$%,.2f", cell.getValue().getPrice())));
+        colPrice.setMaxWidth(150);
+        colPrice.setMinWidth(120);
+
+        table.getColumns().addAll(colId, colName, colDesc, colPrice);
+
+        table.getSelectionModel().selectedItemProperty().addListener((obs, oldSel, selected) -> {
+            if (selected != null) {
+                formPanel.setFieldText("ID", selected.getId());
+                formPanel.setFieldText("Nombre", selected.getName());
+                formPanel.setFieldText("Descripción", selected.getDescription());
+                formPanel.setFieldText("Precio", String.valueOf(selected.getPrice()));
+            }
+        });
+    }
+
     private void handleCreate() {
+        String id = formPanel.getFieldText("ID");
         String name = formPanel.getFieldText("Nombre");
         String description = formPanel.getFieldText("Descripción");
         String priceStr = formPanel.getFieldText("Precio");
 
         if (name.isEmpty() || priceStr.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Debe ingresar el nombre y el precio del servicio", "Validación", JOptionPane.WARNING_MESSAGE);
+            Theme.showWarning("Validación", "Debe ingresar el nombre y el precio del servicio.");
             return;
         }
 
@@ -126,24 +173,41 @@ public class ServiceTypePanel extends JPanel {
                 throw new NumberFormatException();
             }
         } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "El precio debe ser un número positivo", "Validación", JOptionPane.WARNING_MESSAGE);
+            Theme.showWarning("Validación", "El precio debe ser un número positivo válido.");
             return;
         }
 
         try {
-            ServiceType serviceType = new ServiceType(null, name, description, price);
+            ServiceType serviceType = new ServiceType(id.isEmpty() ? null : id, name, description, price);
             serviceTypeService.create(serviceType);
-            JOptionPane.showMessageDialog(this, "Servicio registrado exitosamente", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+            Theme.showInfo("Éxito", "Servicio registrado exitosamente.");
             formPanel.clear();
             loadServices();
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error al crear servicio: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            Theme.showError("Error al crear servicio", ex.getMessage());
         }
     }
 
-    /**
-     * Valida campos y actualiza un servicio existente.
-     */
+    private void handleFindById() {
+        String id = formPanel.getFieldText("ID");
+        if (id.isEmpty()) {
+            Theme.showWarning("Validación", "Ingrese el ID del servicio a consultar.");
+            return;
+        }
+
+        ServiceType found = serviceTypeService.findById(id);
+        if (found == null) {
+            Theme.showWarning("Sin resultados", "No existe un servicio con el ID: " + id);
+            return;
+        }
+
+        formPanel.setFieldText("ID", found.getId());
+        formPanel.setFieldText("Nombre", found.getName());
+        formPanel.setFieldText("Descripción", found.getDescription());
+        formPanel.setFieldText("Precio", String.valueOf(found.getPrice()));
+        table.getSelectionModel().select(found);
+    }
+
     private void handleUpdate() {
         String id = formPanel.getFieldText("ID");
         String name = formPanel.getFieldText("Nombre");
@@ -151,11 +215,11 @@ public class ServiceTypePanel extends JPanel {
         String priceStr = formPanel.getFieldText("Precio");
 
         if (id.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Debe indicar o seleccionar el ID a actualizar", "Validación", JOptionPane.WARNING_MESSAGE);
+            Theme.showWarning("Validación", "Debe indicar o seleccionar el ID a actualizar.");
             return;
         }
         if (name.isEmpty() || priceStr.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Debe ingresar el nombre y el precio del servicio", "Validación", JOptionPane.WARNING_MESSAGE);
+            Theme.showWarning("Validación", "Debe ingresar el nombre y el precio del servicio.");
             return;
         }
 
@@ -166,60 +230,69 @@ public class ServiceTypePanel extends JPanel {
                 throw new NumberFormatException();
             }
         } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "El precio debe ser un número positivo", "Validación", JOptionPane.WARNING_MESSAGE);
+            Theme.showWarning("Validación", "El precio debe ser un número positivo válido.");
             return;
         }
 
         try {
             ServiceType serviceType = new ServiceType(id, name, description, price);
             serviceTypeService.update(serviceType);
-            JOptionPane.showMessageDialog(this, "Servicio actualizado exitosamente", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+            Theme.showInfo("Éxito", "Servicio actualizado exitosamente.");
             formPanel.clear();
             loadServices();
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error al actualizar servicio: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            Theme.showError("Error al actualizar servicio", ex.getMessage());
         }
     }
 
-    /**
-     * Elimina el tipo de servicio especificado por ID.
-     */
     private void handleDelete() {
         String id = formPanel.getFieldText("ID");
         if (id.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Debe indicar o seleccionar el ID a eliminar", "Validación", JOptionPane.WARNING_MESSAGE);
+            Theme.showWarning("Validación", "Debe indicar o seleccionar el ID a eliminar.");
             return;
         }
 
-        int confirm = JOptionPane.showConfirmDialog(this, "¿Está seguro de eliminar el servicio #" + id + "?", "Confirmar eliminación", JOptionPane.YES_NO_OPTION);
-        if (confirm != JOptionPane.YES_OPTION) {
+        if (!Theme.showConfirm("Confirmar eliminación", "¿Está seguro de eliminar el servicio #" + id + "?")) {
             return;
         }
 
         try {
             serviceTypeService.delete(id);
-            JOptionPane.showMessageDialog(this, "Servicio eliminado exitosamente", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+            Theme.showInfo("Éxito", "Servicio eliminado exitosamente.");
             formPanel.clear();
             loadServices();
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error al eliminar servicio: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            Theme.showError("Error al eliminar servicio", ex.getMessage());
         }
     }
 
-    /**
-     * Consulta y recarga los tipos de servicio desde el servicio.
-     */
-    private void loadServices() {
+    public final void loadServices() {
         try {
             List<ServiceType> list = serviceTypeService.findAll();
-            tableModel.setRowCount(0);
-            if (list != null) {
-                for (ServiceType st : list) {
-                    tableModel.addRow(new Object[]{st.getId(), st.getName(), st.getDescription(), st.getPrice()});
-                }
-            }
+            tableData.setAll(list);
+            applyFilter(txtFilter.getText());
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error al consultar servicios: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            Theme.showError("Error al consultar servicios", ex.getMessage());
         }
+    }
+
+    private void applyFilter(String query) {
+        List<ServiceType> all = serviceTypeService.findAll();
+        if (query == null || query.trim().isEmpty()) {
+            tableData.setAll(all);
+            return;
+        }
+        String q = query.trim().toLowerCase();
+        List<ServiceType> filtrados = new ArrayList<>();
+        for (ServiceType s : all) {
+            boolean coincideId = s.getId() != null && s.getId().toLowerCase().contains(q);
+            boolean coincideNombre = s.getName() != null && s.getName().toLowerCase().contains(q);
+            boolean coincideDesc = s.getDescription() != null && s.getDescription().toLowerCase().contains(q);
+
+            if (coincideId || coincideNombre || coincideDesc) {
+                filtrados.add(s);
+            }
+        }
+        tableData.setAll(filtrados);
     }
 }

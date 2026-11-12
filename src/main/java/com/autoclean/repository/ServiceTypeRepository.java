@@ -7,17 +7,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Repositorio en memoria para la entidad ServiceType.
- * Persistencia en memoria; al cerrar la app se pierde. Para el proyecto final se reemplazará por BD.
- */
 public class ServiceTypeRepository {
 
-    // Almacenamiento en memoria usando LinkedHashMap para preservar orden de inserción
+    // Almacenamiento en memoria usando LinkedHashMap para preservar orden de
+    // inserción
     private final Map<String, ServiceType> storage = new LinkedHashMap<>();
 
     /**
-     * Guarda o actualiza un tipo de servicio. Si no tiene ID, se autogenera con UUID.
+     * Guarda o actualiza un tipo de servicio. Si no tiene ID, se autogenera con
+     * UUID.
      *
      * @param serviceType tipo de servicio a guardar
      * @return tipo de servicio guardado con su ID asignado

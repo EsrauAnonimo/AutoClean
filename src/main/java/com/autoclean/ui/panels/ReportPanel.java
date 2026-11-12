@@ -3,130 +3,168 @@ package com.autoclean.ui.panels;
 import com.autoclean.contracts.ReportService;
 import com.autoclean.model.ReportResult;
 import com.autoclean.service.ServiceFactory;
-import com.autoclean.ui.components.SimpleFormPanel;
 import com.autoclean.ui.theme.Theme;
-import java.awt.BorderLayout;
-import java.awt.FlowLayout;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Vector;
-import javax.swing.JButton;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.table.DefaultTableModel;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.geometry.Pos;
+import javafx.scene.control.Button;
+import javafx.scene.control.DatePicker;
+import javafx.scene.control.Label;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 
 /**
- * Panel para la generación y visualización de reportes gerenciales.
+ * Panel JavaFX para la generación y visualización de reportes gerenciales por periodo.
+ * Conserva toda la conexión con ReportService y presenta encabezados reales y legibles.
  */
-public class ReportPanel extends JPanel {
+public class ReportPanel extends BorderPane {
 
     private final ReportService reportService;
-    private final SimpleFormPanel formPanel;
-    private final JLabel lblReportTitle;
-    private final JLabel lblReportDate;
-    private final DefaultTableModel tableModel;
-    private final JTable table;
+    private final DatePicker dpFrom;
+    private final DatePicker dpTo;
+    private final TextField txtFrom;
+    private final TextField txtTo;
+
+    private final Label lblReportTitle;
+    private final Label lblReportDate;
+    private final Label lblRowCountBadge;
+    private final TableView<String[]> table;
+    private final ObservableList<String[]> tableData;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     public ReportPanel() {
         this.reportService = ServiceFactory.getReportService();
-        setLayout(new BorderLayout(10, 10));
-        setBackground(Theme.BLANCO);
+        this.dpFrom = new DatePicker(LocalDate.now().withDayOfMonth(1));
+        this.dpTo = new DatePicker(LocalDate.now().plusDays(7));
+        this.txtFrom = new TextField(dpFrom.getValue().format(DATE_FORMATTER));
+        this.txtTo = new TextField(dpTo.getValue().format(DATE_FORMATTER));
 
-        // Cabecera superior
-        JPanel northPanel = new JPanel(new BorderLayout(5, 5));
-        northPanel.setBackground(Theme.BLANCO);
+        this.lblReportTitle = new Label("Seleccione un tipo de reporte para consultar");
+        this.lblReportDate = new Label("");
+        this.lblRowCountBadge = new Label("0 registros");
+        this.tableData = FXCollections.observableArrayList();
+        this.table = new TableView<>(tableData);
 
-        JLabel mainTitle = new JLabel("Módulo de Reportes");
-        Theme.styleTitleLabel(mainTitle);
-        northPanel.add(mainTitle, BorderLayout.NORTH);
+        getStyleClass().add("content-area");
 
-        // Formulario de fechas
-        formPanel = new SimpleFormPanel();
-        formPanel.addField("Fecha Inicio (yyyy-MM-dd)");
-        formPanel.addField("Fecha Fin (yyyy-MM-dd)");
+        //Sincronizar DatePickers con los campos de texto yyyy-MM-dd
+        dpFrom.valueProperty().addListener((obs, oldV, newV) -> {
+            if (newV != null) {
+                txtFrom.setText(newV.format(DATE_FORMATTER));
+            }
+        });
+        dpTo.valueProperty().addListener((obs, oldV, newV) -> {
+            if (newV != null) {
+                txtTo.setText(newV.format(DATE_FORMATTER));
+            }
+        });
 
-        // Sugerir rango por defecto (mes actual)
-        LocalDate now = LocalDate.now();
-        formPanel.setFieldText("Fecha Inicio (yyyy-MM-dd)", now.withDayOfMonth(1).format(DATE_FORMATTER));
-        formPanel.setFieldText("Fecha Fin (yyyy-MM-dd)", now.format(DATE_FORMATTER));
+        // Barra superior de filtros de fecha y botones de reporte
+        VBox filterCard = new VBox(14);
+        filterCard.getStyleClass().add("card");
 
-        // Botones de generación de reportes
-        JPanel buttonContainer = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 8));
-        buttonContainer.setBackground(Theme.BLANCO);
+        HBox filterHeader = new HBox(10);
+        filterHeader.setAlignment(Pos.CENTER_LEFT);
+        VBox titleGroup = new VBox(2);
+        Label lblMain = new Label("Generador de Reportes Gerenciales");
+        lblMain.getStyleClass().add("card-title");
+        Label lblSub = new Label("Consulte servicios ejecutados o el balance comparativo de ingresos vs costos estimados por rango de fechas");
+        lblSub.getStyleClass().add("card-subtitle");
+        titleGroup.getChildren().addAll(lblMain, lblSub);
+        filterHeader.getChildren().add(titleGroup);
 
-        JButton btnServices = new JButton("Servicios por periodo");
-        JButton btnIncomeVsCost = new JButton("Ingresos vs Costos");
-        JButton btnClear = new JButton("Limpiar");
+        HBox controlsRow = new HBox(14);
+        controlsRow.setAlignment(Pos.BOTTOM_LEFT);
 
-        Theme.styleButton(btnServices);
-        Theme.styleButton(btnIncomeVsCost);
-        Theme.styleSecondaryButton(btnClear);
+        VBox fromGroup = new VBox(4);
+        Label lblFrom = new Label("Fecha Inicio (yyyy-MM-dd)");
+        lblFrom.getStyleClass().add("field-label");
+        HBox fromInputs = new HBox(6, txtFrom, dpFrom);
+        txtFrom.setPrefWidth(130);
+        dpFrom.setPrefWidth(135);
+        fromGroup.getChildren().addAll(lblFrom, fromInputs);
 
-        buttonContainer.add(btnServices);
-        buttonContainer.add(btnIncomeVsCost);
-        buttonContainer.add(btnClear);
+        VBox toGroup = new VBox(4);
+        Label lblTo = new Label("Fecha Fin (yyyy-MM-dd)");
+        lblTo.getStyleClass().add("field-label");
+        HBox toInputs = new HBox(6, txtTo, dpTo);
+        txtTo.setPrefWidth(130);
+        dpTo.setPrefWidth(135);
+        toGroup.getChildren().addAll(lblTo, toInputs);
 
-        JPanel controlsWrapper = new JPanel(new BorderLayout(5, 5));
-        controlsWrapper.setBackground(Theme.BLANCO);
-        controlsWrapper.add(formPanel, BorderLayout.CENTER);
-        controlsWrapper.add(buttonContainer, BorderLayout.SOUTH);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        northPanel.add(controlsWrapper, BorderLayout.CENTER);
-        add(northPanel, BorderLayout.NORTH);
+        Button btnServices = new Button("📋 Servicios por Periodo");
+        Button btnIncomeVsCost = new Button("💰 Ingresos vs Costos");
+        Button btnClear = new Button("Limpiar");
 
-        // Panel central de resultados del reporte
-        JPanel centerPanel = new JPanel(new BorderLayout(5, 5));
-        centerPanel.setBackground(Theme.BLANCO);
+        btnServices.getStyleClass().add("btn-primary");
+        btnIncomeVsCost.getStyleClass().add("btn-dark");
+        btnClear.getStyleClass().add("btn-secondary");
 
-        JPanel reportHeaderPanel = new JPanel(new BorderLayout(5, 5));
-        reportHeaderPanel.setBackground(Theme.GRIS_FONDO);
+        HBox buttonsBox = new HBox(10, btnServices, btnIncomeVsCost, btnClear);
+        buttonsBox.setAlignment(Pos.BOTTOM_RIGHT);
 
-        lblReportTitle = new JLabel("Ningún reporte generado aún");
-        lblReportTitle.setFont(Theme.FONT_HEADER);
-        lblReportTitle.setForeground(Theme.AZUL_OSCURO);
+        controlsRow.getChildren().addAll(fromGroup, toGroup, spacer, buttonsBox);
+        filterCard.getChildren().addAll(filterHeader, controlsRow);
 
-        lblReportDate = new JLabel("");
-        lblReportDate.setFont(Theme.FONT_REGULAR);
+        // Tarjeta central de resultados tabulados
+        VBox resultsCard = new VBox(12);
+        resultsCard.getStyleClass().add("card");
+        VBox.setVgrow(resultsCard, Priority.ALWAYS);
 
-        reportHeaderPanel.add(lblReportTitle, BorderLayout.WEST);
-        reportHeaderPanel.add(lblReportDate, BorderLayout.EAST);
-        centerPanel.add(reportHeaderPanel, BorderLayout.NORTH);
+        HBox reportMetaHeader = new HBox(12);
+        reportMetaHeader.setAlignment(Pos.CENTER_LEFT);
+        lblReportTitle.getStyleClass().add("card-title");
+        lblRowCountBadge.getStyleClass().addAll("badge", "badge-progress");
+        Region metaSpacer = new Region();
+        HBox.setHgrow(metaSpacer, Priority.ALWAYS);
+        lblReportDate.getStyleClass().add("card-subtitle");
+        reportMetaHeader.getChildren().addAll(lblReportTitle, lblRowCountBadge, metaSpacer, lblReportDate);
 
-        tableModel = new DefaultTableModel();
-        table = new JTable(tableModel);
-        Theme.styleTable(table);
-        centerPanel.add(new JScrollPane(table), BorderLayout.CENTER);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        table.setPlaceholder(new Label("Presione 'Servicios por Periodo' o 'Ingresos vs Costos' para visualizar los datos."));
+        VBox.setVgrow(table, Priority.ALWAYS);
 
-        add(centerPanel, BorderLayout.CENTER);
+        resultsCard.getChildren().addAll(reportMetaHeader, table);
+
+        VBox mainContainer = new VBox(18, filterCard, resultsCard);
+        VBox.setVgrow(resultsCard, Priority.ALWAYS);
+        setCenter(mainContainer);
 
         // Eventos
-        btnServices.addActionListener(e -> generateReport(true));
-        btnIncomeVsCost.addActionListener(e -> generateReport(false));
-        btnClear.addActionListener(e -> {
-            formPanel.clear();
-            tableModel.setDataVector(new Object[][]{}, new Object[]{});
+        btnServices.setOnAction(e -> generateReport(true));
+        btnIncomeVsCost.setOnAction(e -> generateReport(false));
+        btnClear.setOnAction(e -> {
+            tableData.clear();
+            table.getColumns().clear();
             lblReportTitle.setText("Ningún reporte generado aún");
             lblReportDate.setText("");
+            lblRowCountBadge.setText("0 registros");
         });
+
+        // Generar vista inicial automáticamente con los datos actuales
+        generateReport(true);
     }
 
-    /**
-     * Valida fechas e invoca el método correspondiente de ReportService.
-     *
-     * @param isServices true para 'Servicios por periodo', false para 'Ingresos vs Costos'
-     */
-    private void generateReport(boolean isServices) {
-        String fromStr = formPanel.getFieldText("Fecha Inicio (yyyy-MM-dd)");
-        String toStr = formPanel.getFieldText("Fecha Fin (yyyy-MM-dd)");
+    public final void generateReport(boolean isServices) {
+        String fromStr = txtFrom.getText() != null ? txtFrom.getText().trim() : "";
+        String toStr = txtTo.getText() != null ? txtTo.getText().trim() : "";
 
         if (fromStr.isEmpty() || toStr.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Debe ingresar las fechas de inicio y fin", "Validación", JOptionPane.WARNING_MESSAGE);
+            Theme.showWarning("Validación", "Debe ingresar las fechas de inicio y fin.");
             return;
         }
 
@@ -136,36 +174,30 @@ public class ReportPanel extends JPanel {
             fromDate = LocalDate.parse(fromStr, DATE_FORMATTER);
             toDate = LocalDate.parse(toStr, DATE_FORMATTER);
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Formato de fecha inválido. Debe ser yyyy-MM-dd (ej. 2026-10-01)", "Validación", JOptionPane.WARNING_MESSAGE);
+            Theme.showWarning("Validación", "Formato de fecha inválido. Use yyyy-MM-dd (ej. 2026-10-01).");
             return;
         }
 
         if (toDate.isBefore(fromDate)) {
-            JOptionPane.showMessageDialog(this, "La fecha final no puede ser anterior a la inicial", "Validación", JOptionPane.WARNING_MESSAGE);
+            Theme.showWarning("Validación", "La fecha final no puede ser anterior a la fecha inicial.");
             return;
         }
 
         try {
-            ReportResult result;
-            if (isServices) {
-                result = reportService.getServicesByPeriod(fromDate, toDate);
-            } else {
-                result = reportService.getIncomeVsCosts(fromDate, toDate);
-            }
+            ReportResult result = isServices
+                    ? reportService.getServicesByPeriod(fromDate, toDate)
+                    : reportService.getIncomeVsCosts(fromDate, toDate);
 
             if (result != null) {
-                displayReport(result);
+                displayReport(result, isServices);
             }
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error al generar reporte: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            Theme.showError("Error al generar reporte", ex.getMessage());
         }
     }
 
-    /**
-     * Muestra el título y las filas del ReportResult en la tabla Swing.
-     */
-    private void displayReport(ReportResult result) {
-        lblReportTitle.setText("Reporte: " + result.getTitle());
+    private void displayReport(ReportResult result, boolean isServices) {
+        lblReportTitle.setText(result.getTitle());
         if (result.getGeneratedAt() != null) {
             lblReportDate.setText("Generado: " + result.getGeneratedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
         } else {
@@ -173,28 +205,33 @@ public class ReportPanel extends JPanel {
         }
 
         List<String[]> rows = result.getRows();
+        table.getColumns().clear();
+        tableData.clear();
+
         if (rows == null || rows.isEmpty()) {
-            tableModel.setDataVector(new Object[][]{}, new Object[]{"Mensaje"});
-            tableModel.addRow(new Object[]{"No se encontraron datos para el rango especificado."});
+            lblRowCountBadge.setText("0 registros");
+            table.setPlaceholder(new Label("Sin datos registrados en el periodo consultado (" + txtFrom.getText() + " al " + txtTo.getText() + ")."));
             return;
         }
 
-        // Determinar número de columnas por la primera fila
+        String[] headers = isServices
+                ? new String[]{"ID Turno", "Cliente", "Servicio Realizado", "Estado", "Fecha y Hora"}
+                : new String[]{"Servicio", "Precio Público ($)", "Costo Estimado ($)", "Diferencia Bruta ($)"};
+
         int colCount = rows.get(0).length;
-        Vector<String> columnNames = new Vector<>();
-        for (int i = 1; i <= colCount; i++) {
-            columnNames.add("Columna " + i);
+        for (int i = 0; i < colCount; i++) {
+            final int colIndex = i;
+            String headerTitle = i < headers.length ? headers[i] : "Columna " + (i + 1);
+            TableColumn<String[], String> col = new TableColumn<>(headerTitle);
+            col.setCellValueFactory(cell -> {
+                String[] r = cell.getValue();
+                String val = (r != null && colIndex < r.length && r[colIndex] != null) ? r[colIndex] : "";
+                return new SimpleStringProperty(val);
+            });
+            table.getColumns().add(col);
         }
 
-        Vector<Vector<Object>> data = new Vector<>();
-        for (String[] row : rows) {
-            Vector<Object> rowVector = new Vector<>();
-            for (String val : row) {
-                rowVector.add(val);
-            }
-            data.add(rowVector);
-        }
-
-        tableModel.setDataVector(data, columnNames);
+        tableData.setAll(rows);
+        lblRowCountBadge.setText(rows.size() + (rows.size() == 1 ? " registro" : " registros"));
     }
 }

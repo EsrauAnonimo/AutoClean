@@ -7,13 +7,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Repositorio en memoria para la entidad Customer.
- * Persistencia en memoria; al cerrar la app se pierde. Para el proyecto final se reemplazará por BD.
- */
 public class CustomerRepository {
 
-    // Almacenamiento en memoria usando LinkedHashMap para preservar orden de inserción
+    // Almacenamiento en memoria usando LinkedHashMap para preservar orden de
+    // inserción
     private final Map<String, Customer> storage = new LinkedHashMap<>();
 
     /**

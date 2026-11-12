@@ -1,0 +1,274 @@
+/* ==========================================================================
+   AutoClean - Estilos Generales (main.css)
+   Paleta empresarial: Azul Oscuro (#0F172A), Turquesa/Cian (#06B6D4),
+   Fondo Gris Azulado Claro (#F1F5F9), Tarjetas Blancas (#FFFFFF)
+   ========================================================================== */
+
+.root {
+    -fx-font-family: "Segoe UI", "Inter", "System", sans-serif;
+    -fx-font-size: 13px;
+    -fx-background-color: #F1F5F9;
+    -fx-text-fill: #0F172A;
+}
+
+/* Contenedor principal del área de contenido */
+.content-area {
+    -fx-background-color: #F1F5F9;
+    -fx-padding: 24px 28px;
+}
+
+.content-scroll {
+    -fx-background-color: transparent;
+    -fx-background: #F1F5F9;
+    -fx-border-color: transparent;
+}
+
+.content-scroll > .viewport {
+    -fx-background-color: #F1F5F9;
+}
+
+/* Encabezado superior (Top Header Bar) */
+.top-header {
+    -fx-background-color: #FFFFFF;
+    -fx-padding: 14px 28px;
+    -fx-border-color: transparent transparent #E2E8F0 transparent;
+    -fx-border-width: 0 0 1px 0;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.04), 8, 0, 0, 2);
+}
+
+.header-page-title {
+    -fx-font-size: 19px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #0F172A;
+}
+
+.header-page-subtitle {
+    -fx-font-size: 12px;
+    -fx-text-fill: #64748B;
+}
+
+/* Buscador global en el encabezado */
+.search-box {
+    -fx-background-color: #F8FAFC;
+    -fx-background-radius: 20px;
+    -fx-border-color: #CBD5E1;
+    -fx-border-radius: 20px;
+    -fx-padding: 6px 14px;
+    -fx-alignment: CENTER_LEFT;
+}
+
+.search-box:focused-within {
+    -fx-border-color: #06B6D4;
+    -fx-background-color: #FFFFFF;
+}
+
+.search-input {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 2px 6px;
+    -fx-font-size: 13px;
+    -fx-text-fill: #1E293B;
+    -fx-prompt-text-fill: #94A3B8;
+}
+
+.search-icon {
+    -fx-text-fill: #64748B;
+    -fx-font-size: 13px;
+}
+
+/* Perfil de usuario en el encabezado */
+.user-profile-box {
+    -fx-background-color: #F8FAFC;
+    -fx-background-radius: 24px;
+    -fx-border-color: #E2E8F0;
+    -fx-border-radius: 24px;
+    -fx-padding: 5px 14px 5px 8px;
+    -fx-alignment: CENTER_LEFT;
+}
+
+.user-avatar {
+    -fx-background-color: linear-gradient(to bottom right, #06B6D4, #0284C7);
+    -fx-background-radius: 50%;
+    -fx-min-width: 32px;
+    -fx-min-height: 32px;
+    -fx-max-width: 32px;
+    -fx-max-height: 32px;
+    -fx-alignment: CENTER;
+    -fx-text-fill: #FFFFFF;
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+}
+
+.user-name {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #0F172A;
+}
+
+.user-role {
+    -fx-font-size: 11px;
+    -fx-text-fill: #64748B;
+}
+
+/* Tarjetas blancas reutilizables */
+.card {
+    -fx-background-color: #FFFFFF;
+    -fx-background-radius: 12px;
+    -fx-border-color: #E2E8F0;
+    -fx-border-radius: 12px;
+    -fx-border-width: 1px;
+    -fx-padding: 20px;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.05), 10, 0, 0, 3);
+}
+
+.card-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #0F172A;
+}
+
+.card-subtitle {
+    -fx-font-size: 12px;
+    -fx-text-fill: #64748B;
+}
+
+/* Barra de estado inferior */
+.status-bar {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #E2E8F0 transparent transparent transparent;
+    -fx-border-width: 1px 0 0 0;
+    -fx-padding: 6px 24px;
+}
+
+.status-bar-text {
+    -fx-font-size: 11.5px;
+    -fx-text-fill: #64748B;
+}
+
+.status-dot-online {
+    -fx-background-color: #10B981;
+    -fx-background-radius: 50%;
+    -fx-min-width: 8px;
+    -fx-min-height: 8px;
+    -fx-max-width: 8px;
+    -fx-max-height: 8px;
+}
+
+/* ScrollBars estilizados */
+.scroll-bar:vertical,
+.scroll-bar:horizontal {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar:vertical .thumb,
+.scroll-bar:horizontal .thumb {
+    -fx-background-color: #CBD5E1;
+    -fx-background-radius: 6px;
+}
+
+.scroll-bar:vertical .thumb:hover,
+.scroll-bar:horizontal .thumb:hover {
+    -fx-background-color: #94A3B8;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 2px;
+}
+
+/* ==========================================================================
+   Pantalla de Inicio de Sesión (Login)
+   ========================================================================== */
+
+.login-background {
+    -fx-background-color: linear-gradient(to bottom right, #0B1120, #0F172A 55%, #164E63);
+    -fx-padding: 32px;
+}
+
+.login-card {
+    -fx-background-color: #FFFFFF;
+    -fx-background-radius: 16px;
+    -fx-border-color: rgba(6, 182, 212, 0.35);
+    -fx-border-radius: 16px;
+    -fx-border-width: 1.5px;
+    -fx-padding: 36px 38px;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.42), 28, 0, 0, 10);
+}
+
+.login-logo-badge {
+    -fx-background-color: linear-gradient(to bottom right, #06B6D4, #0891B2);
+    -fx-background-radius: 14px;
+    -fx-min-width: 56px;
+    -fx-min-height: 56px;
+    -fx-max-width: 56px;
+    -fx-max-height: 56px;
+    -fx-alignment: CENTER;
+    -fx-text-fill: #FFFFFF;
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(6, 182, 212, 0.38), 12, 0, 0, 3);
+}
+
+.login-brand-name {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #0891B2;
+}
+
+.login-title {
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #0F172A;
+}
+
+.login-subtitle {
+    -fx-font-size: 13px;
+    -fx-text-fill: #64748B;
+}
+
+.login-error-label {
+    -fx-background-color: #FEE2E2;
+    -fx-border-color: #FECACA;
+    -fx-background-radius: 8px;
+    -fx-border-radius: 8px;
+    -fx-padding: 8px 12px;
+    -fx-text-fill: #B91C1C;
+    -fx-font-size: 12.5px;
+    -fx-font-weight: bold;
+    -fx-alignment: CENTER;
+}
+
+.login-toggle-btn {
+    -fx-background-color: #E2E8F0;
+    -fx-background-radius: 6px;
+    -fx-text-fill: #334155;
+    -fx-font-size: 11.5px;
+    -fx-font-weight: bold;
+    -fx-padding: 7px 10px;
+    -fx-cursor: hand;
+}
+
+.login-toggle-btn:hover {
+    -fx-background-color: #CBD5E1;
+    -fx-text-fill: #0F172A;
+}
+
+.logout-btn {
+    -fx-background-color: #FEF2F2;
+    -fx-border-color: #FECACA;
+    -fx-background-radius: 18px;
+    -fx-border-radius: 18px;
+    -fx-text-fill: #DC2626;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-padding: 6px 14px;
+    -fx-cursor: hand;
+}
+
+.logout-btn:hover {
+    -fx-background-color: #EF4444;
+    -fx-border-color: #EF4444;
+    -fx-text-fill: #FFFFFF;
+}
+

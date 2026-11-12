@@ -5,134 +5,195 @@ import com.autoclean.model.Customer;
 import com.autoclean.service.ServiceFactory;
 import com.autoclean.ui.components.SimpleFormPanel;
 import com.autoclean.ui.theme.Theme;
-import java.awt.BorderLayout;
-import java.awt.FlowLayout;
+import java.util.ArrayList;
 import java.util.List;
-import javax.swing.JButton;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.table.DefaultTableModel;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.geometry.Pos;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 
 /**
- * Panel para la administración de clientes (CRUD).
+ * Panel JavaFX para la administración de clientes (CRUD completo y búsqueda).
+ * Conserva toda la lógica existente conectada a CustomerService.
  */
-public class CustomerPanel extends JPanel {
+public class CustomerPanel extends BorderPane {
 
     private final CustomerService customerService;
     private final SimpleFormPanel formPanel;
-    private final DefaultTableModel tableModel;
-    private final JTable table;
+    private final TableView<Customer> table;
+    private final ObservableList<Customer> tableData;
+    private final TextField txtFilter;
 
     public CustomerPanel() {
         this.customerService = ServiceFactory.getCustomerService();
-        setLayout(new BorderLayout(10, 10));
-        setBackground(Theme.BLANCO);
+        this.tableData = FXCollections.observableArrayList();
+        this.table = new TableView<>(tableData);
+        this.txtFilter = new TextField();
 
-        // Título superior
-        JLabel titleLabel = new JLabel("Gestión de Clientes");
-        Theme.styleTitleLabel(titleLabel);
-        add(titleLabel, BorderLayout.NORTH);
+        getStyleClass().add("content-area");
 
-        // Formulario central-izquierdo
+        // Panel izquierdo: Formulario de registro y edición
         formPanel = new SimpleFormPanel();
-        formPanel.addField("ID");
-        formPanel.addField("Nombre");
-        formPanel.addField("Teléfono");
-        formPanel.addField("Correo");
+        formPanel.setPrefWidth(340);
+        formPanel.setMinWidth(310);
+        formPanel.setHeader("Datos del Cliente",
+                "Complete la información para registrar, consultar o actualizar un propietario.");
+        formPanel.addField("ID", "Autogenerado o ej. CLI-005");
+        formPanel.addField("Nombre", "Nombre completo del cliente");
+        formPanel.addField("Teléfono", "Ej. 3104567890");
+        formPanel.addField("Correo", "cliente@correo.com");
 
-        // Botones de acción
-        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 8));
-        buttonsPanel.setBackground(Theme.BLANCO);
+        // Botones de acción CRUD
+        FlowPane buttonsPane = new FlowPane(8, 8);
+        Button btnCreate = new Button("＋ Crear");
+        Button btnFind = new Button("🔍 Consultar ID");
+        Button btnUpdate = new Button("✎ Actualizar");
+        Button btnDelete = new Button("🗑 Eliminar");
+        Button btnList = new Button("↻ Listar");
+        Button btnClear = new Button("Limpiar");
 
-        JButton btnCreate = new JButton("Crear");
-        JButton btnUpdate = new JButton("Actualizar");
-        JButton btnDelete = new JButton("Eliminar");
-        JButton btnList = new JButton("Listar");
-        JButton btnClear = new JButton("Limpiar");
+        btnCreate.getStyleClass().add("btn-primary");
+        btnFind.getStyleClass().add("btn-secondary");
+        btnUpdate.getStyleClass().add("btn-dark");
+        btnDelete.getStyleClass().add("btn-danger");
+        btnList.getStyleClass().add("btn-secondary");
+        btnClear.getStyleClass().add("btn-secondary");
 
-        Theme.styleButton(btnCreate);
-        Theme.styleButton(btnUpdate);
-        Theme.styleSecondaryButton(btnDelete);
-        Theme.styleButton(btnList);
-        Theme.styleSecondaryButton(btnClear);
+        buttonsPane.getChildren().addAll(btnCreate, btnUpdate, btnFind, btnDelete, btnList, btnClear);
+        formPanel.getChildren().add(buttonsPane);
 
-        buttonsPanel.add(btnCreate);
-        buttonsPanel.add(btnUpdate);
-        buttonsPanel.add(btnDelete);
-        buttonsPanel.add(btnList);
-        buttonsPanel.add(btnClear);
+        // Panel central: Tabla estilizada con filtro rápido
+        VBox tableCard = new VBox(12);
+        tableCard.getStyleClass().add("card");
+        HBox.setHgrow(tableCard, Priority.ALWAYS);
 
-        JPanel leftPanel = new JPanel(new BorderLayout(5, 5));
-        leftPanel.setBackground(Theme.BLANCO);
-        leftPanel.add(formPanel, BorderLayout.CENTER);
-        leftPanel.add(buttonsPanel, BorderLayout.SOUTH);
-        add(leftPanel, BorderLayout.WEST);
+        HBox tableHeader = new HBox(12);
+        tableHeader.setAlignment(Pos.CENTER_LEFT);
+        VBox titleBox = new VBox(2);
+        Label lblTableTitle = new Label("Directorio de Clientes Registrados");
+        lblTableTitle.getStyleClass().add("card-title");
+        Label lblTableSub = new Label("Seleccione cualquier fila para cargar sus datos en el formulario lateral");
+        lblTableSub.getStyleClass().add("card-subtitle");
+        titleBox.getChildren().addAll(lblTableTitle, lblTableSub);
 
-        // Tabla de datos
-        String[] columns = {"ID", "Nombre", "Teléfono", "Correo"};
-        tableModel = new DefaultTableModel(columns, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
-        };
-        table = new JTable(tableModel);
-        Theme.styleTable(table);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        // Selección en tabla carga formulario
-        table.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting() && table.getSelectedRow() != -1) {
-                int row = table.getSelectedRow();
-                formPanel.setFieldText("ID", String.valueOf(tableModel.getValueAt(row, 0)));
-                formPanel.setFieldText("Nombre", String.valueOf(tableModel.getValueAt(row, 1)));
-                formPanel.setFieldText("Teléfono", String.valueOf(tableModel.getValueAt(row, 2)));
-                formPanel.setFieldText("Correo", String.valueOf(tableModel.getValueAt(row, 3)));
-            }
+        txtFilter.setPromptText("Filtrar por nombre, teléfono o correo...");
+        txtFilter.setPrefWidth(250);
+        txtFilter.getStyleClass().add("text-field");
+        txtFilter.textProperty().addListener((obs, oldV, newV) -> applyFilter(newV));
+
+        tableHeader.getChildren().addAll(titleBox, spacer, txtFilter);
+
+        configureTable();
+        VBox.setVgrow(table, Priority.ALWAYS);
+        tableCard.getChildren().addAll(tableHeader, table);
+
+        HBox mainLayout = new HBox(20, formPanel, tableCard);
+        HBox.setHgrow(tableCard, Priority.ALWAYS);
+        setCenter(mainLayout);
+
+        // Eventos
+        btnCreate.setOnAction(e -> handleCreate());
+        btnFind.setOnAction(e -> handleFindById());
+        btnUpdate.setOnAction(e -> handleUpdate());
+        btnDelete.setOnAction(e -> handleDelete());
+        btnList.setOnAction(e -> loadCustomers());
+        btnClear.setOnAction(e -> {
+            formPanel.clear();
+            table.getSelectionModel().clearSelection();
         });
 
-        add(new JScrollPane(table), BorderLayout.CENTER);
-
-        // Configuración de eventos
-        btnCreate.addActionListener(e -> handleCreate());
-        btnUpdate.addActionListener(e -> handleUpdate());
-        btnDelete.addActionListener(e -> handleDelete());
-        btnList.addActionListener(e -> loadCustomers());
-        btnClear.addActionListener(e -> formPanel.clear());
-
-        // Carga inicial
         loadCustomers();
     }
 
-    /**
-     * Valida los campos y llama al servicio para crear un cliente.
-     */
+    private void configureTable() {
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        table.setPlaceholder(new Label("No hay clientes registrados que coincidan con la búsqueda."));
+
+        TableColumn<Customer, String> colId = new TableColumn<>("ID Cliente");
+        colId.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getId()));
+        colId.setMaxWidth(130);
+        colId.setMinWidth(95);
+
+        TableColumn<Customer, String> colName = new TableColumn<>("Nombre Completo");
+        colName.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getName()));
+        colName.setMinWidth(180);
+
+        TableColumn<Customer, String> colPhone = new TableColumn<>("Teléfono");
+        colPhone.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getPhone()));
+        colPhone.setMinWidth(120);
+
+        TableColumn<Customer, String> colEmail = new TableColumn<>("Correo Electrónico");
+        colEmail.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getEmail()));
+        colEmail.setMinWidth(180);
+
+        table.getColumns().addAll(colId, colName, colPhone, colEmail);
+
+        table.getSelectionModel().selectedItemProperty().addListener((obs, oldSel, selected) -> {
+            if (selected != null) {
+                formPanel.setFieldText("ID", selected.getId());
+                formPanel.setFieldText("Nombre", selected.getName());
+                formPanel.setFieldText("Teléfono", selected.getPhone());
+                formPanel.setFieldText("Correo", selected.getEmail());
+            }
+        });
+    }
+
     private void handleCreate() {
+        String id = formPanel.getFieldText("ID");
         String name = formPanel.getFieldText("Nombre");
         String phone = formPanel.getFieldText("Teléfono");
         String email = formPanel.getFieldText("Correo");
 
         if (name.isEmpty() || phone.isEmpty() || email.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Debe completar nombre, teléfono y correo", "Validación", JOptionPane.WARNING_MESSAGE);
+            Theme.showWarning("Validación", "Debe completar nombre, teléfono y correo del cliente.");
             return;
         }
 
         try {
-            Customer customer = new Customer(null, name, phone, email);
+            Customer customer = new Customer(id.isEmpty() ? null : id, name, phone, email);
             customerService.create(customer);
-            JOptionPane.showMessageDialog(this, "Cliente creado exitosamente", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+            Theme.showInfo("Éxito", "Cliente creado exitosamente.");
             formPanel.clear();
             loadCustomers();
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error al crear cliente: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            Theme.showError("Error al crear cliente", ex.getMessage());
         }
     }
 
-    /**
-     * Valida los campos y llama al servicio para actualizar un cliente.
-     */
+    private void handleFindById() {
+        String id = formPanel.getFieldText("ID");
+        if (id.isEmpty()) {
+            Theme.showWarning("Validación", "Ingrese el ID del cliente que desea consultar.");
+            return;
+        }
+
+        Customer found = customerService.findById(id);
+        if (found == null) {
+            Theme.showWarning("Sin resultados", "No se encontró ningún cliente con el ID: " + id);
+            return;
+        }
+
+        formPanel.setFieldText("ID", found.getId());
+        formPanel.setFieldText("Nombre", found.getName());
+        formPanel.setFieldText("Teléfono", found.getPhone());
+        formPanel.setFieldText("Correo", found.getEmail());
+        table.getSelectionModel().select(found);
+    }
+
     private void handleUpdate() {
         String id = formPanel.getFieldText("ID");
         String name = formPanel.getFieldText("Nombre");
@@ -140,64 +201,74 @@ public class CustomerPanel extends JPanel {
         String email = formPanel.getFieldText("Correo");
 
         if (id.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Debe especificar el ID del cliente a actualizar", "Validación", JOptionPane.WARNING_MESSAGE);
+            Theme.showWarning("Validación", "Debe especificar o seleccionar el ID del cliente a actualizar.");
             return;
         }
         if (name.isEmpty() || phone.isEmpty() || email.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Debe completar todos los datos del cliente", "Validación", JOptionPane.WARNING_MESSAGE);
+            Theme.showWarning("Validación", "Debe completar todos los datos del cliente.");
             return;
         }
 
         try {
             Customer customer = new Customer(id, name, phone, email);
             customerService.update(customer);
-            JOptionPane.showMessageDialog(this, "Cliente actualizado exitosamente", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+            Theme.showInfo("Éxito", "Cliente actualizado exitosamente.");
             formPanel.clear();
             loadCustomers();
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error al actualizar cliente: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            Theme.showError("Error al actualizar cliente", ex.getMessage());
         }
     }
 
-    /**
-     * Llama al servicio para eliminar el cliente seleccionado.
-     */
     private void handleDelete() {
         String id = formPanel.getFieldText("ID");
         if (id.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Debe seleccionar o ingresar el ID del cliente a eliminar", "Validación", JOptionPane.WARNING_MESSAGE);
+            Theme.showWarning("Validación", "Debe seleccionar o ingresar el ID del cliente a eliminar.");
             return;
         }
 
-        int confirm = JOptionPane.showConfirmDialog(this, "¿Está seguro de eliminar el cliente #" + id + "?", "Confirmar eliminación", JOptionPane.YES_NO_OPTION);
-        if (confirm != JOptionPane.YES_OPTION) {
+        if (!Theme.showConfirm("Confirmar eliminación", "¿Está seguro de eliminar el cliente #" + id + "?")) {
             return;
         }
 
         try {
             customerService.delete(id);
-            JOptionPane.showMessageDialog(this, "Cliente eliminado exitosamente", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+            Theme.showInfo("Éxito", "Cliente eliminado exitosamente.");
             formPanel.clear();
             loadCustomers();
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error al eliminar cliente: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            Theme.showError("Error al eliminar cliente", ex.getMessage());
         }
     }
 
-    /**
-     * Consulta y recarga la lista de clientes en la tabla.
-     */
-    private void loadCustomers() {
+    public final void loadCustomers() {
         try {
             List<Customer> list = customerService.findAll();
-            tableModel.setRowCount(0);
-            if (list != null) {
-                for (Customer c : list) {
-                    tableModel.addRow(new Object[]{c.getId(), c.getName(), c.getPhone(), c.getEmail()});
-                }
-            }
+            tableData.setAll(list);
+            applyFilter(txtFilter.getText());
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error al consultar clientes: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            Theme.showError("Error al consultar clientes", ex.getMessage());
         }
+    }
+
+    private void applyFilter(String query) {
+        List<Customer> all = customerService.findAll();
+        if (query == null || query.trim().isEmpty()) {
+            tableData.setAll(all);
+            return;
+        }
+        String q = query.trim().toLowerCase();
+        List<Customer> filtrados = new ArrayList<>();
+        for (Customer c : all) {
+            boolean coincideId = c.getId() != null && c.getId().toLowerCase().contains(q);
+            boolean coincideNombre = c.getName() != null && c.getName().toLowerCase().contains(q);
+            boolean coincideTelefono = c.getPhone() != null && c.getPhone().toLowerCase().contains(q);
+            boolean coincideCorreo = c.getEmail() != null && c.getEmail().toLowerCase().contains(q);
+
+            if (coincideId || coincideNombre || coincideTelefono || coincideCorreo) {
+                filtrados.add(c);
+            }
+        }
+        tableData.setAll(filtrados);
     }
 }

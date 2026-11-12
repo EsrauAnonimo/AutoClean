@@ -32,3 +32,6 @@ replay_pid*
 # Documentos de estudio locales (no se suben)
 ESTUDIO_LIDER.docx
 ESTUDIO_DEV1.docx
+ESTUDIO_DEV1_2.0.docx
+*.docx
+!docs/archive/*.docx

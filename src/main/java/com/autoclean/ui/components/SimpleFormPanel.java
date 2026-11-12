@@ -1,103 +1,114 @@
 package com.autoclean.ui.components;
 
-import com.autoclean.ui.theme.Theme;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import javax.swing.BorderFactory;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JTextField;
+import javafx.scene.Node;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.VBox;
 
 /**
- * Panel de formulario reutilizable que gestiona etiquetas y campos de texto de manera dinámica.
+ * Componente de formulario reutilizable en JavaFX que gestiona etiquetas,
+ * campos de entrada y controles personalizados manteniendo el diseño corporativo.
  */
-public class SimpleFormPanel extends JPanel {
+public class SimpleFormPanel extends VBox {
 
-    private final Map<String, JTextField> fields = new LinkedHashMap<>();
-    private final GridBagConstraints gbc = new GridBagConstraints();
-    private int currentRow = 0;
+    private final Map<String, TextField> fields = new LinkedHashMap<>();
 
     public SimpleFormPanel() {
-        setLayout(new GridBagLayout());
-        setBackground(Theme.GRIS_FONDO);
-        setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(Theme.GRIS_BORDE),
-            BorderFactory.createEmptyBorder(12, 12, 12, 12)
-        ));
-
-        gbc.insets = new Insets(5, 5, 5, 5);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+        setSpacing(10);
+        getStyleClass().add("form-card");
     }
 
     /**
-     * Agrega un nuevo campo de texto con su etiqueta descriptiva.
+     * Agrega un título y subtítulo descriptivo en la cabecera del formulario.
+     */
+    public void setHeader(String title, String subtitle) {
+        VBox headerBox = new VBox(2);
+        Label lblTitle = new Label(title);
+        lblTitle.getStyleClass().add("form-section-title");
+        headerBox.getChildren().add(lblTitle);
+
+        if (subtitle != null && !subtitle.trim().isEmpty()) {
+            Label lblSub = new Label(subtitle);
+            lblSub.getStyleClass().add("form-section-subtitle");
+            lblSub.setWrapText(true);
+            headerBox.getChildren().add(lblSub);
+        }
+        getChildren().add(0, headerBox);
+    }
+
+    /**
+     * Agrega un campo de texto con su etiqueta descriptiva.
      *
-     * @param labelText texto de la etiqueta que identifica el campo
+     * @param labelText nombre identificador del campo
      */
     public void addField(String labelText) {
-        JLabel label = new JLabel(labelText);
-        label.setFont(Theme.FONT_BOLD);
-        label.setForeground(Theme.AZUL_OSCURO);
-
-        JTextField textField = new JTextField(15);
-        textField.setFont(Theme.FONT_REGULAR);
-
-        // Posicionar etiqueta en columna 0
-        gbc.gridx = 0;
-        gbc.gridy = currentRow;
-        gbc.weightx = 0.2;
-        add(label, gbc);
-
-        // Posicionar campo de texto en columna 1
-        gbc.gridx = 1;
-        gbc.gridy = currentRow;
-        gbc.weightx = 0.8;
-        add(textField, gbc);
-
-        fields.put(labelText, textField);
-        currentRow++;
+        addField(labelText, "");
     }
 
     /**
-     * Obtiene el texto actual del campo indicado, recortando espacios en blanco.
+     * Agrega un campo de texto con etiqueta y texto de sugerencia (placeholder).
      *
-     * @param labelText nombre de la etiqueta del campo
-     * @return texto del campo o cadena vacía si no existe
+     * @param labelText nombre identificador del campo
+     * @param promptText texto guía dentro del campo
+     */
+    public void addField(String labelText, String promptText) {
+        VBox group = new VBox(4);
+        Label label = new Label(labelText);
+        label.getStyleClass().add("field-label");
+
+        TextField textField = new TextField();
+        textField.setPromptText(promptText);
+        textField.getStyleClass().add("text-field");
+
+        group.getChildren().addAll(label, textField);
+        getChildren().add(group);
+        fields.put(labelText, textField);
+    }
+
+    /**
+     * Agrega un control personalizado de JavaFX (ej. ComboBox, DatePicker) con etiqueta.
+     */
+    public void addCustomControl(String labelText, Node control) {
+        VBox group = new VBox(4);
+        Label label = new Label(labelText);
+        label.getStyleClass().add("field-label");
+        group.getChildren().addAll(label, control);
+        getChildren().add(group);
+    }
+
+    /**
+     * Obtiene el valor actual del campo sin espacios laterales.
      */
     public String getFieldText(String labelText) {
-        JTextField field = fields.get(labelText);
-        return field != null ? field.getText().trim() : "";
+        TextField field = fields.get(labelText);
+        return field != null && field.getText() != null ? field.getText().trim() : "";
     }
 
     /**
-     * Establece el texto del campo indicado.
-     *
-     * @param labelText nombre de la etiqueta del campo
-     * @param text texto a asignar
+     * Asigna un texto al campo indicado.
      */
     public void setFieldText(String labelText, String text) {
-        JTextField field = fields.get(labelText);
+        TextField field = fields.get(labelText);
         if (field != null) {
             field.setText(text != null ? text : "");
         }
     }
 
     /**
-     * Limpia el contenido de todos los campos de texto registrados en el formulario.
+     * Limpia todos los campos de texto del formulario.
      */
     public void clear() {
-        for (JTextField field : fields.values()) {
-            field.setText("");
+        for (TextField field : fields.values()) {
+            field.clear();
         }
     }
 
     /**
-     * Retorna el componente JTextField asociado a una etiqueta.
+     * Retorna la instancia de TextField asociada a una etiqueta.
      */
-    public JTextField getTextField(String labelText) {
+    public TextField getTextField(String labelText) {
         return fields.get(labelText);
     }
 }
