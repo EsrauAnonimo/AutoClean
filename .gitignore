@@ -35,3 +35,38 @@ ESTUDIO_DEV1.docx
 ESTUDIO_DEV1_2.0.docx
 *.docx
 !docs/archive/*.docx
+
+# Entorno
+.env
+.env.*
+!.env.example
+
+# Java / Maven (monorepo)
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/timing.properties
+
+# Node / frontend
+node_modules/
+dist/
+build/
+.next/
+.vercel/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
