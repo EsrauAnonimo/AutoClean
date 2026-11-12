@@ -1,0 +1,13 @@
+# Normaliza fin de línea a LF en todo el repo.
+# Evita el ruido CRLF vs LF que OneDrive y editores de Windows
+# introducen, y garantiza consistencia con agentes en Linux/Mac.
+* text=auto eol=lf
+
+# Binarios: no tocar
+*.docx binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.jar  binary
+*.pdf  binary
