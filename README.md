@@ -1,42 +1,37 @@
-# AutoClean - Sistema de Gestión para Centros de Embellecimiento Automotriz
+# AutoClean
 
-Entrega académica funcional de la capa de presentación (UI) y definición de contratos de arquitectura.
+Sistema de gestión para lavaderos de autos y detailing. Proyecto de
+Programación 3 (Java + POO).
 
-## ⚠️ Advertencia Importante sobre OneDrive
-> **ADVERTENCIA TÉCNICA:**
-> Este proyecto se encuentra alojado dentro de una carpeta sincronizada por **OneDrive** (`C:\Users\Esteb\OneDrive\Documentos\AutoClean`).
-> Para evitar bloqueos de archivos (*file lock*) durante las fases de compilación y empaquetado de Maven:
-> 1. El directorio `target/` se encuentra estrictamente ignorado en `.gitignore`.
-> 2. Se recomienda pausar temporalmente la sincronización de OneDrive al ejecutar comandos intensivos como `mvn clean compile` o `mvn clean package`.
+## Stack
 
----
+- **Legacy:** Java 21 + JavaFX 17 (carpeta `legacy-javafx/`, solo referencia).
+- **Backend:** Java 21 + Spring Boot 3 + JPA + Security + JWT + Flyway (`backend/`).
+- **Base de datos:** PostgreSQL en Supabase.
+- **Frontend:** panel admin + portal cliente en Vercel (`web/`).
 
-## 📌 Arquitectura y Responsabilidades
+## Antes de tocar código
 
-El desarrollo se divide bajo un esquema de separación estricta de responsabilidades entre dos desarrolladores:
-- **Líder Técnico (Rama `leader`):** Responsable del 100% de la **Capa de Presentación (UI)** construida en Java Swing, definición de contratos (`com.autoclean.contracts`) y modelos compartidos (`com.autoclean.model`). Consume los servicios únicamente a través de interfaces provistas por `ServiceFactory`.
-- **Desarrollador 1 (Rama `dev1`):** Responsable del dominio, lógica de negocio, reglas de cálculo y persistencia de datos.
+Lee [`AGENTS.md`](./AGENTS.md). Contiene el reparto de módulos, las
+convenciones (código en inglés, comentarios en español, GRASP + SOLID),
+las reglas de negocio intocables y las reglas de Git.
 
-### Nota Crítica para la Fusión de Ramas:
-Al fusionar la rama `leader` con la rama `dev1`:
-- Se **conservará** la versión de dev1 de `com/autoclean/service/ServiceFactory` y `com/autoclean/service/impl`.
-- Se **eliminará** el paquete temporal de stubs: `com/autoclean/service/stub`.
-- Los paquetes `com/autoclean/contracts` y `com/autoclean/model` deben permanecer **idénticos** y no ser modificados unilateralmente.
+## Cómo correr el legacy (referencia)
 
----
+    cd legacy-javafx
+    mvn clean javafx:run
 
-## 🚀 Compilación y Ejecución
+## Cómo correr el backend (a partir de la Fase 2)
 
-### Requisitos:
-- Java JDK 17 o superior.
-- Apache Maven 3.8+.
+    cd backend
+    cp .env.example .env   # llenar variables
+    mvn spring-boot:run
 
-### Compilación del proyecto:
-```bash
-mvn compile
-```
+## Estructura del repo
 
-### Ejecución de la aplicación Swing:
-```bash
-mvn exec:java
-```
+    legacy-javafx/   app JavaFX original (referencia)
+    backend/         API REST Spring Boot
+    web/             frontend (admin + portal cliente)
+    db/              scripts auxiliares (las migraciones viven en backend/src/main/resources/db/migration/)
+    docs/            documentación técnica y decisiones
+    AGENTS.md        reglas del proyecto para agentes y humanos
