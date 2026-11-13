@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
-import { TOKEN_STORAGE_KEY, USER_STORAGE_KEY } from '../services/api'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { AUTH_UNAUTHORIZED_EVENT, TOKEN_STORAGE_KEY, USER_STORAGE_KEY } from '../services/api'
 import authService from '../services/authService'
 
 const AuthContext = createContext(null)
@@ -55,8 +55,27 @@ export function AuthProvider({ children }) {
     [persistSession],
   )
 
+  const register = useCallback(
+    async (payload) => {
+      const data = await authService.register(payload)
+      persistSession(data)
+      return data
+    },
+    [persistSession],
+  )
+
   const logout = useCallback(() => {
     persistSession(null)
+  }, [persistSession])
+
+  // Sincroniza el contexto cuando el interceptor HTTP detecta un token inválido o expirado (401)
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      persistSession(null)
+    }
+
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized)
+    return () => window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized)
   }, [persistSession])
 
   const value = useMemo(
@@ -65,9 +84,10 @@ export function AuthProvider({ children }) {
       user,
       isAuthenticated: Boolean(token),
       login,
+      register,
       logout,
     }),
-    [token, user, login, logout],
+    [token, user, login, register, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

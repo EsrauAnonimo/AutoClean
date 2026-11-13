@@ -1,8 +1,9 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { getHomeRouteByRole } from '../utils/authRedirect'
 import { Button } from './Button'
 
-const NAV_ITEMS = [
+const ADMIN_NAV_ITEMS = [
   { to: '/dashboard', label: 'Panel principal' },
   { to: '/customers', label: 'Clientes' },
   { to: '/vehicles', label: 'Vehículos' },
@@ -13,12 +14,24 @@ const NAV_ITEMS = [
   { to: '/reports', label: 'Reportes' },
 ]
 
+const PORTAL_NAV_ITEMS = [
+  { to: '/portal/dashboard', label: 'Inicio' },
+  { to: '/portal/mis-vehiculos', label: 'Mis Vehículos' },
+  { to: '/portal/agendar', label: 'Agendar Cita' },
+  { to: '/portal/historial', label: 'Historial' },
+]
+
 /**
- * Plantilla principal con barra lateral de navegación para vistas autenticadas de AutoClean.
+ * Plantilla principal con barra lateral de navegación para vistas autenticadas
+ * del panel administrativo y del Portal de Clientes de AutoClean.
  */
 export function MainLayout({ children }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+
+  const isClient = user?.role === 'CLIENTE'
+  const homeRoute = getHomeRouteByRole(user?.role)
+  const navItems = isClient ? PORTAL_NAV_ITEMS : ADMIN_NAV_ITEMS
 
   const handleLogout = () => {
     logout()
@@ -29,15 +42,17 @@ export function MainLayout({ children }) {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
-          <div className="flex items-center gap-3">
+          <Link to={homeRoute} className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-600 text-sm font-bold text-white">
               AC
             </div>
             <div>
               <h1 className="text-base font-bold text-slate-900">AutoClean</h1>
-              <p className="text-xs text-slate-500">Gestión de Lavadero y Detailing</p>
+              <p className="text-xs text-slate-500">
+                {isClient ? 'Portal de Clientes' : 'Gestión de Lavadero y Detailing'}
+              </p>
             </div>
-          </div>
+          </Link>
 
           <div className="flex items-center gap-4">
             {user && (
@@ -58,7 +73,7 @@ export function MainLayout({ children }) {
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row">
         <aside aria-label="Navegación principal" className="w-full shrink-0 lg:w-60">
           <nav className="flex flex-wrap gap-1.5 rounded-2xl border border-slate-200 bg-white p-2 shadow-xs lg:flex-col">
-            {NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}

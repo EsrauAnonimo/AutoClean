@@ -6,12 +6,17 @@ import { CatalogPage } from './pages/CatalogPage'
 import { CustomersPage } from './pages/CustomersPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
+import { PortalDashboardPage } from './pages/PortalDashboardPage'
+import { RegisterPage } from './pages/RegisterPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { SuppliesPage } from './pages/SuppliesPage'
 import { VehiclesPage } from './pages/VehiclesPage'
 
+const STAFF_ROLES = ['ADMIN', 'OPERATOR', 'MANAGER']
+const CLIENT_ROLES = ['CLIENTE']
+
 /**
- * Enrutador principal de AutoClean Web.
+ * Enrutador principal de AutoClean Web con separación por rol (panel staff y portal cliente).
  */
 function App() {
   return (
@@ -19,10 +24,13 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+
+          {/* Rutas del panel administrativo/operativo */}
           <Route
             path="/dashboard"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={STAFF_ROLES}>
                 <DashboardPage />
               </ProtectedRoute>
             }
@@ -30,7 +38,7 @@ function App() {
           <Route
             path="/customers"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={STAFF_ROLES}>
                 <CustomersPage />
               </ProtectedRoute>
             }
@@ -38,7 +46,7 @@ function App() {
           <Route
             path="/vehicles"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={STAFF_ROLES}>
                 <VehiclesPage />
               </ProtectedRoute>
             }
@@ -46,7 +54,7 @@ function App() {
           <Route
             path="/appointments"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={STAFF_ROLES}>
                 <AppointmentsPage />
               </ProtectedRoute>
             }
@@ -54,7 +62,7 @@ function App() {
           <Route
             path="/catalog"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={STAFF_ROLES}>
                 <CatalogPage key="services" initialTab="services" />
               </ProtectedRoute>
             }
@@ -62,7 +70,7 @@ function App() {
           <Route
             path="/employees"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={STAFF_ROLES}>
                 <CatalogPage key="employees" initialTab="employees" />
               </ProtectedRoute>
             }
@@ -70,7 +78,7 @@ function App() {
           <Route
             path="/supplies"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={STAFF_ROLES}>
                 <SuppliesPage />
               </ProtectedRoute>
             }
@@ -78,11 +86,22 @@ function App() {
           <Route
             path="/reports"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={STAFF_ROLES}>
                 <ReportsPage />
               </ProtectedRoute>
             }
           />
+
+          {/* Rutas del Portal de Clientes */}
+          <Route
+            path="/portal/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={CLIENT_ROLES}>
+                <PortalDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
