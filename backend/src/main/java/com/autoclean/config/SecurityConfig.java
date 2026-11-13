@@ -76,6 +76,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Permite forwards internos de error (/error) para no enmascarar 400/401/500 como 403
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/complete-profile").authenticated()
                         .requestMatchers("/api/auth/**", "/error", "/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
                         .anyRequest().authenticated())

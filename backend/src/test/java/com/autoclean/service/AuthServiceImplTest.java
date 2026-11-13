@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.autoclean.dto.auth.CompleteProfileRequest;
 import com.autoclean.dto.auth.LoginRequest;
 import com.autoclean.dto.auth.LoginResponse;
 import com.autoclean.dto.auth.RegisterRequest;
@@ -104,6 +105,30 @@ class AuthServiceImplTest {
         assertEquals("admin@autoclean.com", response.email());
         assertEquals("ADMIN", response.role());
         assertTrue(jwtService.isTokenValid(response.token(), "admin@autoclean.com"));
+    }
+
+    @Test
+    void shouldCompleteProfileAndLinkCustomerWithNewJwt() {
+        User googleUser = new User("esraubest@gmail.com", passwordEncoder.encode("rand"), Role.CLIENTE, null);
+        googleUser.setId(UUID.randomUUID());
+
+        UUID customerId = UUID.randomUUID();
+        Customer createdCustomer = new Customer("Esteban", "+57 3001112233", "esraubest@gmail.com");
+        createdCustomer.setId(customerId);
+
+        when(userRepository.findByEmailIgnoreCase("esraubest@gmail.com")).thenReturn(Optional.of(googleUser));
+        when(customerRepository.findByEmailIgnoreCase("esraubest@gmail.com")).thenReturn(Optional.empty());
+        when(customerRepository.save(any(Customer.class))).thenReturn(createdCustomer);
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        LoginResponse response = authService.completeProfile(
+                "esraubest@gmail.com",
+                new CompleteProfileRequest("Esteban", "+57 3001112233")
+        );
+
+        assertEquals(customerId, response.customerId());
+        assertEquals("CLIENTE", response.role());
+        assertTrue(jwtService.isTokenValid(response.token(), "esraubest@gmail.com"));
     }
 }
 
