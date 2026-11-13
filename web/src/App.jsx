@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
+import { AppointmentHistoryPage } from './pages/AppointmentHistoryPage'
 import { AppointmentsPage } from './pages/AppointmentsPage'
 import { BookAppointmentPage } from './pages/BookAppointmentPage'
 import { CatalogPage } from './pages/CatalogPage'
@@ -118,6 +119,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={CLIENT_ROLES}>
                 <BookAppointmentPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/portal/historial"
+            element={
+              <ProtectedRoute allowedRoles={CLIENT_ROLES}>
+                <AppointmentHistoryPage />
               </ProtectedRoute>
             }
           />

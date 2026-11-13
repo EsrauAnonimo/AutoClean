@@ -1,5 +1,6 @@
 package com.autoclean.controller;
 
+import com.autoclean.dto.auth.CompleteProfileRequest;
 import com.autoclean.dto.auth.LoginRequest;
 import com.autoclean.dto.auth.LoginResponse;
 import com.autoclean.dto.auth.RegisterRequest;
@@ -7,6 +8,7 @@ import com.autoclean.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,6 +40,16 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<LoginResponse> register(@Valid @RequestBody RegisterRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
+    }
+
+    @PostMapping("/complete-profile")
+    public ResponseEntity<LoginResponse> completeProfile(
+            Authentication authentication,
+            @Valid @RequestBody CompleteProfileRequest request) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(authService.completeProfile(authentication.getName(), request));
     }
 }
 

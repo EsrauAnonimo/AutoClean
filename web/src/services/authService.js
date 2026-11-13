@@ -25,6 +25,17 @@ const authService = {
     const response = await api.post('/auth/register', payload)
     return response.data
   },
+
+  /**
+   * Completa o vincula el perfil de cliente de la cuenta autenticada (ej. login con Google).
+   *
+   * @param {{ name: string, phone: string }} payload
+   * @returns {Promise<{ token: string, type: string, email: string, role: string, customerId: string | null }>}
+   */
+  async completeProfile(payload) {
+    const response = await api.post('/auth/complete-profile', payload)
+    return response.data
+  },
 }
 
 export default authService
