@@ -21,6 +21,18 @@ export async function getVehiclesByCustomer(customerId) {
 }
 
 /**
+ * Busca un vehículo registrado por su número de placa.
+ */
+export async function getVehicleByPlate(plate) {
+  const normalizedPlate = String(plate || '').trim().toUpperCase()
+  if (!normalizedPlate) {
+    throw new Error('La placa del vehículo es obligatoria.')
+  }
+  const { data } = await api.get(`/vehicles/plate/${encodeURIComponent(normalizedPlate)}`)
+  return data
+}
+
+/**
  * Registra un nuevo vehículo asociado a un cliente.
  */
 export async function createVehicle(payload) {

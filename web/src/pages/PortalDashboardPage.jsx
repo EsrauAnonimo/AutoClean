@@ -28,15 +28,24 @@ export function PortalDashboardPage() {
 
   return (
     <MainLayout>
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-900">Bienvenido a tu Portal de Clientes</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Sesión iniciada como{' '}
-          <span className="font-semibold text-slate-900">{user?.email || 'cliente'}</span>.
-          {user?.customerId
-            ? ' Tu perfil de cliente está vinculado y listo para gestionar vehículos y citas.'
-            : ' Tu cuenta aún no tiene un perfil de cliente vinculado.'}
-        </p>
+      <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Bienvenido a tu Portal de Clientes</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Sesión iniciada como{' '}
+            <span className="font-semibold text-slate-900">{user?.email || 'cliente'}</span>.
+            {user?.customerId
+              ? ' Tu perfil de cliente está vinculado y listo para gestionar vehículos y citas.'
+              : ' Tu cuenta aún no tiene un perfil de cliente vinculado.'}
+          </p>
+        </div>
+
+        <Link
+          to="/portal/agendar"
+          className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-700"
+        >
+          Agendar Cita
+        </Link>
       </section>
 
       <section className="mt-6 grid gap-4 sm:grid-cols-3">
