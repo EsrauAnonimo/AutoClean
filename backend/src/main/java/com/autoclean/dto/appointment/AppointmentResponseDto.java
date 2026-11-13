@@ -2,6 +2,7 @@ package com.autoclean.dto.appointment;
 
 import com.autoclean.model.Appointment;
 import com.autoclean.model.AppointmentStatus;
+import com.autoclean.model.VehicleStatus;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -21,9 +22,28 @@ public record AppointmentResponseDto(
         String serviceTypeName,
         OffsetDateTime dateTime,
         AppointmentStatus status,
+        VehicleStatus vehicleStatus,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
 ) {
+
+    public AppointmentResponseDto(
+            UUID id,
+            UUID customerId,
+            String customerName,
+            UUID vehicleId,
+            String vehiclePlate,
+            UUID employeeId,
+            String employeeName,
+            UUID serviceTypeId,
+            String serviceTypeName,
+            OffsetDateTime dateTime,
+            AppointmentStatus status,
+            OffsetDateTime createdAt,
+            OffsetDateTime updatedAt) {
+        this(id, customerId, customerName, vehicleId, vehiclePlate, employeeId, employeeName,
+                serviceTypeId, serviceTypeName, dateTime, status, VehicleStatus.RECEIVED, createdAt, updatedAt);
+    }
 
     /**
      * Convierte una entidad {@link Appointment} en su DTO de respuesta.
@@ -44,6 +64,7 @@ public record AppointmentResponseDto(
                 appointment.getServiceType() != null ? appointment.getServiceType().getName() : null,
                 appointment.getDateTime(),
                 appointment.getStatus(),
+                appointment.getVehicleStatus() != null ? appointment.getVehicleStatus() : VehicleStatus.RECEIVED,
                 appointment.getCreatedAt(),
                 appointment.getUpdatedAt()
         );

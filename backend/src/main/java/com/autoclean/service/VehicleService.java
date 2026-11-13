@@ -21,4 +21,6 @@ public interface VehicleService {
     List<VehicleResponse> findAll();
 
     List<VehicleResponse> findByCustomerId(UUID customerId);
+
+    VehicleResponse findByPlate(String plate);
 }

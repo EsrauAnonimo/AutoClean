@@ -16,6 +16,7 @@ import com.autoclean.model.Customer;
 import com.autoclean.model.Employee;
 import com.autoclean.model.ServiceType;
 import com.autoclean.model.Vehicle;
+import com.autoclean.model.VehicleStatus;
 import com.autoclean.repository.AppointmentRepository;
 import com.autoclean.repository.CustomerRepository;
 import com.autoclean.repository.EmployeeRepository;
@@ -24,6 +25,7 @@ import com.autoclean.repository.VehicleRepository;
 import com.autoclean.service.impl.AppointmentServiceImpl;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,6 +34,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -85,7 +88,7 @@ class AppointmentServiceTest {
         employeeId = UUID.randomUUID();
         serviceTypeId = UUID.randomUUID();
         appointmentId = UUID.randomUUID();
-        dateTime = OffsetDateTime.now().plusDays(1);
+        dateTime = OffsetDateTime.now().plusDays(1).withHour(10).withMinute(0).withSecond(0).withNano(0);
 
         customer = new Customer("Juan Pérez", "3001234567", "juan@autoclean.com");
         customer.setId(customerId);
@@ -316,6 +319,77 @@ class AppointmentServiceTest {
         when(appointmentRepository.findById(appointmentId)).thenReturn(Optional.empty());
         assertThrows(IllegalArgumentException.class,
                 () -> appointmentService.updateStatus(appointmentId, AppointmentStatus.IN_PROGRESS));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"7,0", "12,0", "14,30", "21,0"})
+    @DisplayName("create debe aceptar horarios dentro de 7:00-12:00 y 14:30-21:00")
+    void shouldAllowCreationWithinOperatingHours(int hour, int minute) {
+        mockAllReferencesFound();
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(invocation -> {
+            Appointment saved = invocation.getArgument(0);
+            saved.setId(appointmentId);
+            return saved;
+        });
+
+        OffsetDateTime validDateTime = OffsetDateTime.of(2026, 11, 14, hour, minute, 0, 0, ZoneOffset.ofHours(-5));
+        AppointmentRequestDto request = new AppointmentRequestDto(
+                customerId, vehicleId, employeeId, serviceTypeId, validDateTime, null
+        );
+
+        AppointmentResponseDto response = appointmentService.create(request);
+        assertEquals(VehicleStatus.RECEIVED, response.vehicleStatus());
+        assertEquals(AppointmentStatus.PENDING, response.status());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"6,59", "12,1", "14,29", "21,1"})
+    @DisplayName("create debe rechazar horarios fuera de atención con el mensaje exacto")
+    void shouldRejectCreationOutsideOperatingHours(int hour, int minute) {
+        OffsetDateTime invalidDateTime = OffsetDateTime.of(2026, 11, 14, hour, minute, 0, 0, ZoneOffset.ofHours(-5));
+        AppointmentRequestDto request = new AppointmentRequestDto(
+                customerId, vehicleId, employeeId, serviceTypeId, invalidDateTime, null
+        );
+
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> appointmentService.create(request)
+        );
+        assertEquals("Horario de atención: 7am-12pm y 2:30pm-9pm", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("cancel debe pasar a CANCELLED solo si la cita está en PENDING")
+    void shouldCancelOnlyWhenPending() {
+        Appointment pending = buildAppointment(AppointmentStatus.PENDING);
+        when(appointmentRepository.findById(appointmentId)).thenReturn(Optional.of(pending));
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AppointmentResponseDto cancelled = appointmentService.cancel(appointmentId);
+        assertEquals(AppointmentStatus.CANCELLED, cancelled.status());
+
+        for (AppointmentStatus nonPending : List.of(
+                AppointmentStatus.IN_PROGRESS, AppointmentStatus.FINISHED, AppointmentStatus.CANCELLED)) {
+            Appointment other = buildAppointment(nonPending);
+            when(appointmentRepository.findById(appointmentId)).thenReturn(Optional.of(other));
+            assertThrows(IllegalStateException.class, () -> appointmentService.cancel(appointmentId));
+        }
+    }
+
+    @Test
+    @DisplayName("updateVehicleStatus debe actualizar el estado en vivo del vehículo y rechazar nulos")
+    void shouldUpdateVehicleStatusAndRejectNulls() {
+        Appointment appointment = buildAppointment(AppointmentStatus.IN_PROGRESS);
+        when(appointmentRepository.findById(appointmentId)).thenReturn(Optional.of(appointment));
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AppointmentResponseDto updated = appointmentService.updateVehicleStatus(appointmentId, VehicleStatus.WASHING);
+        assertEquals(VehicleStatus.WASHING, updated.vehicleStatus());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> appointmentService.updateVehicleStatus(null, VehicleStatus.READY));
+        assertThrows(IllegalArgumentException.class,
+                () -> appointmentService.updateVehicleStatus(appointmentId, null));
     }
 
     private void mockAllReferencesFound() {

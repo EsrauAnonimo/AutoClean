@@ -2,6 +2,7 @@ package com.autoclean.repository;
 
 import com.autoclean.model.Vehicle;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -11,4 +12,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
 
     List<Vehicle> findByCustomerId(UUID customerId);
+
+    Optional<Vehicle> findByPlateIgnoreCase(String plate);
 }

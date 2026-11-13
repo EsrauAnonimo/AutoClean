@@ -50,6 +50,11 @@ public class VehicleController {
         return ResponseEntity.ok(vehicleService.findByCustomerId(customerId));
     }
 
+    @GetMapping("/plate/{plate}")
+    public ResponseEntity<VehicleResponse> findByPlate(@PathVariable String plate) {
+        return ResponseEntity.ok(vehicleService.findByPlate(plate));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<VehicleResponse> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(vehicleService.findById(id));
