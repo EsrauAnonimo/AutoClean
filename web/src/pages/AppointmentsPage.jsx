@@ -10,35 +10,27 @@ import {
   getCustomers,
   getVehicles,
   updateAppointmentStatus,
+  updateVehicleStatus,
 } from '../services/appointmentService'
 import { getEmployees, getServiceTypes } from '../services/catalogService'
+import { getVehicleStatusMeta } from '../utils/vehicleStatus'
 
 const STATUS_META = {
   PENDING: {
     label: 'Pendiente',
     badgeClass: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
-    transitions: [
-      { nextStatus: 'IN_PROGRESS', label: 'Iniciar', buttonClass: 'bg-sky-600 text-white hover:bg-sky-700' },
-      { nextStatus: 'CANCELLED', label: 'Cancelar', buttonClass: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100' },
-    ],
   },
   IN_PROGRESS: {
     label: 'En progreso',
     badgeClass: 'bg-sky-50 text-sky-700 ring-1 ring-sky-200',
-    transitions: [
-      { nextStatus: 'FINISHED', label: 'Finalizar', buttonClass: 'bg-emerald-600 text-white hover:bg-emerald-700' },
-      { nextStatus: 'CANCELLED', label: 'Cancelar', buttonClass: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100' },
-    ],
   },
   FINISHED: {
     label: 'Finalizada',
     badgeClass: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
-    transitions: [],
   },
   CANCELLED: {
     label: 'Cancelada',
     badgeClass: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200',
-    transitions: [],
   },
 }
 
@@ -178,17 +170,50 @@ export function AppointmentsPage() {
     }
   }
 
+  const applyAppointmentUpdate = (updated) => {
+    setAppointments((prev) => {
+      const mapped = prev.map((item) => (item.id === updated.id ? updated : item))
+      return statusFilter ? mapped.filter((item) => item.status === statusFilter) : mapped
+    })
+  }
+
   const handleStatusChange = async (appointmentId, nextStatus) => {
     setErrorMessage('')
     setUpdatingId(appointmentId)
     try {
       const updated = await updateAppointmentStatus(appointmentId, nextStatus)
-      setAppointments((prev) => {
-        const mapped = prev.map((item) => (item.id === appointmentId ? updated : item))
-        return statusFilter ? mapped.filter((item) => item.status === statusFilter) : mapped
-      })
+      applyAppointmentUpdate(updated)
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error, 'No fue posible actualizar el estado de la cita.'))
+    } finally {
+      setUpdatingId(null)
+    }
+  }
+
+  const handleStartService = async (appointmentId) => {
+    setErrorMessage('')
+    setUpdatingId(appointmentId)
+    try {
+      await updateAppointmentStatus(appointmentId, 'IN_PROGRESS')
+      const updated = await updateVehicleStatus(appointmentId, 'WASHING')
+      applyAppointmentUpdate(updated)
+    } catch (error) {
+      setErrorMessage(getApiErrorMessage(error, 'No fue posible iniciar el servicio.'))
+    } finally {
+      setUpdatingId(null)
+    }
+  }
+
+  const handleVehicleStatusChange = async (appointmentId, nextVehicleStatus) => {
+    setErrorMessage('')
+    setUpdatingId(appointmentId)
+    try {
+      const updated = await updateVehicleStatus(appointmentId, nextVehicleStatus)
+      applyAppointmentUpdate(updated)
+    } catch (error) {
+      setErrorMessage(
+        getApiErrorMessage(error, 'No fue posible actualizar el estado del vehículo.'),
+      )
     } finally {
       setUpdatingId(null)
     }
@@ -389,6 +414,7 @@ export function AppointmentsPage() {
                     <th className="px-4 py-3">Servicio</th>
                     <th className="px-4 py-3">Empleado</th>
                     <th className="px-4 py-3">Estado</th>
+                    <th className="px-4 py-3">Vehículo (vivo)</th>
                     <th className="px-4 py-3 text-right">Acciones</th>
                   </tr>
                 </thead>
@@ -397,8 +423,8 @@ export function AppointmentsPage() {
                     const meta = STATUS_META[appointment.status] || {
                       label: appointment.status,
                       badgeClass: 'bg-slate-100 text-slate-700',
-                      transitions: [],
                     }
+                    const vehicleMeta = getVehicleStatusMeta(appointment.vehicleStatus)
                     const isBusy = updatingId === appointment.id
 
                     return (
@@ -417,19 +443,74 @@ export function AppointmentsPage() {
                             {appointment.status}
                           </span>
                         </td>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${vehicleMeta.badgeClass}`}>
+                            {vehicleMeta.label}
+                          </span>
+                        </td>
                         <td className="whitespace-nowrap px-4 py-3 text-right">
                           <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
-                            {meta.transitions.map((transition) => (
-                              <button
-                                key={transition.nextStatus}
-                                type="button"
-                                disabled={isBusy}
-                                onClick={() => handleStatusChange(appointment.id, transition.nextStatus)}
-                                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition disabled:opacity-50 ${transition.buttonClass}`}
-                              >
-                                {transition.label}
-                              </button>
-                            ))}
+                            {appointment.status === 'PENDING' && (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={isBusy}
+                                  onClick={() => handleStartService(appointment.id)}
+                                  className="rounded-md bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-sky-700 disabled:opacity-50"
+                                >
+                                  Iniciar Servicio
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isBusy}
+                                  onClick={() => handleStatusChange(appointment.id, 'CANCELLED')}
+                                  className="rounded-md bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-200 transition hover:bg-rose-100 disabled:opacity-50"
+                                >
+                                  Cancelar
+                                </button>
+                              </>
+                            )}
+                            {appointment.status === 'IN_PROGRESS' && (
+                              <>
+                                {appointment.vehicleStatus !== 'READY' && (
+                                  <button
+                                    type="button"
+                                    disabled={isBusy}
+                                    onClick={() => handleVehicleStatusChange(appointment.id, 'READY')}
+                                    className="rounded-md bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-amber-600 disabled:opacity-50"
+                                  >
+                                    Marcar como Listo
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  disabled={isBusy}
+                                  onClick={() => handleStatusChange(appointment.id, 'FINISHED')}
+                                  className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                                >
+                                  Finalizar
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isBusy}
+                                  onClick={() => handleStatusChange(appointment.id, 'CANCELLED')}
+                                  className="rounded-md bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-200 transition hover:bg-rose-100 disabled:opacity-50"
+                                >
+                                  Cancelar
+                                </button>
+                              </>
+                            )}
+                            {appointment.status === 'FINISHED' &&
+                              appointment.vehicleStatus !== 'DELIVERED' && (
+                                <button
+                                  type="button"
+                                  disabled={isBusy}
+                                  onClick={() => handleVehicleStatusChange(appointment.id, 'DELIVERED')}
+                                  className="rounded-md bg-teal-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-teal-700 disabled:opacity-50"
+                                >
+                                  Entregar
+                                </button>
+                              )}
                             <button
                               type="button"
                               disabled={isBusy}
