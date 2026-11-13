@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { useAuth } from '../context/AuthContext'
+import { getHomeRouteByRole } from '../utils/authRedirect'
 
 /**
- * Pantalla de acceso que autentica contra POST /api/auth/login y persiste el token JWT.
+ * Pantalla de acceso que autentica contra POST /api/auth/login,
+ * persiste el JWT y redirige según el rol (ADMIN -> /dashboard, CLIENTE -> /portal/dashboard).
  */
 export function LoginPage() {
-  const { isAuthenticated, login } = useAuth()
+  const { isAuthenticated, user, login } = useAuth()
   const navigate = useNavigate()
 
   const [email, setEmail] = useState('')
@@ -17,7 +19,7 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false)
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to={getHomeRouteByRole(user?.role)} replace />
   }
 
   const handleSubmit = async (event) => {
@@ -31,8 +33,8 @@ export function LoginPage() {
 
     setSubmitting(true)
     try {
-      await login({ email: email.trim(), password })
-      navigate('/dashboard', { replace: true })
+      const authData = await login({ email: email.trim(), password })
+      navigate(getHomeRouteByRole(authData?.role), { replace: true })
     } catch (error) {
       const apiMessage = error.response?.data?.message
       if (apiMessage) {
@@ -56,7 +58,7 @@ export function LoginPage() {
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">AutoClean</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Inicia sesión para gestionar citas, clientes y detailing
+            Inicia sesión para acceder a tu cuenta
           </p>
         </div>
 
@@ -75,7 +77,7 @@ export function LoginPage() {
             label="Correo electrónico"
             type="email"
             autoComplete="email"
-            placeholder="admin@autoclean.com"
+            placeholder="correo@autoclean.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -96,6 +98,13 @@ export function LoginPage() {
             Ingresar
           </Button>
         </form>
+
+        <p className="mt-6 text-center text-sm text-slate-600">
+          ¿Aún no tienes cuenta?{' '}
+          <Link to="/register" className="font-semibold text-sky-600 hover:text-sky-700">
+            Regístrate aquí
+          </Link>
+        </p>
       </div>
     </div>
   )
