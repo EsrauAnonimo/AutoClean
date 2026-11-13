@@ -6,9 +6,14 @@ import { MainLayout } from '../components/MainLayout'
 import { PlateInput } from '../components/PlateInput'
 import { useAuth } from '../context/AuthContext'
 import { getApiErrorMessage } from '../services/api'
-import { createAppointment, getOccupiedAppointmentSlots } from '../services/appointmentService'
+import {
+  createAppointment,
+  getAppointmentsByCustomer,
+  getOccupiedAppointmentSlots,
+} from '../services/appointmentService'
 import { getEmployees, getServiceTypes } from '../services/catalogService'
-import { getVehicleByPlate } from '../services/vehicleService'
+import { getVehicleByPlate, getVehiclesByCustomer } from '../services/vehicleService'
+import { toLocalOffsetIsoString } from '../utils/dateTime'
 import { showToast } from '../utils/toast'
 
 const STEPS = [
@@ -87,7 +92,7 @@ export function BookAppointmentPage() {
   const [searchParams] = useSearchParams()
   const initialPlate = (searchParams.get('plate') || '').toUpperCase()
   const todayIso = useMemo(() => getTodayIsoDate(), [])
-  const [renderTimestamp] = useState(() => Date.now())
+  const [nowMs, setNowMs] = useState(() => Date.now())
 
   const [step, setStep] = useState(1)
   const [plate, setPlate] = useState(initialPlate)
@@ -97,85 +102,88 @@ export function BookAppointmentPage() {
 
   const [serviceTypes, setServiceTypes] = useState([])
   const [employees, setEmployees] = useState([])
+  const [myVehicles, setMyVehicles] = useState([])
+  const [myAppointments, setMyAppointments] = useState([])
   const [catalogLoading, setCatalogLoading] = useState(Boolean(customerId))
 
   const [selectedServiceId, setSelectedServiceId] = useState('')
   const [selectedDate, setSelectedDate] = useState(todayIso)
   const [selectedTime, setSelectedTime] = useState('')
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState('')
   const [occupiedSlots, setOccupiedSlots] = useState([])
   const [loadingAvailability, setLoadingAvailability] = useState(false)
+  const [availabilityVersion, setAvailabilityVersion] = useState(0)
 
   const [stepError, setStepError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [createdAppointment, setCreatedAppointment] = useState(null)
 
-  const lookupVehicleByPlate = useCallback(async (rawPlate) => {
-    const cleaned = rawPlate.trim().toUpperCase()
-    if (!cleaned) {
-      setPlateError('Ingresa la placa de tu vehículo para continuar.')
-      return null
-    }
-    setSearchingVehicle(true)
-    setPlateError('')
-    try {
-      const found = await getVehicleByPlate(cleaned)
-      setResolvedVehicle(found)
-      return found
-    } catch (error) {
-      setResolvedVehicle(null)
-      setPlateError(
-        getApiErrorMessage(
-          error,
-          `No encontramos un vehículo registrado con la placa ${cleaned}.`,
-        ),
-      )
-      return null
-    } finally {
-      setSearchingVehicle(false)
-    }
-  }, [])
+  const lookupVehicleByPlate = useCallback(
+    async (rawPlate) => {
+      const cleaned = rawPlate.trim().toUpperCase()
+      if (!cleaned) {
+        setPlateError('Ingresa la placa de tu vehículo para continuar.')
+        return null
+      }
+      setSearchingVehicle(true)
+      setPlateError('')
+      try {
+        const found = await getVehicleByPlate(cleaned)
+        if (found?.customerId && customerId && found.customerId !== customerId) {
+          setResolvedVehicle(null)
+          setPlateError('Esta placa pertenece a otro cliente. Registra tu vehículo en Mis Vehículos.')
+          return null
+        }
+        setResolvedVehicle(found)
+        return found
+      } catch (error) {
+        setResolvedVehicle(null)
+        setPlateError(
+          getApiErrorMessage(
+            error,
+            `No encontramos un vehículo registrado con la placa ${cleaned}.`,
+          ),
+        )
+        return null
+      } finally {
+        setSearchingVehicle(false)
+      }
+    },
+    [customerId],
+  )
 
-  useEffect(() => {
+  const loadCatalogData = useCallback(async () => {
     if (!customerId) {
       setCatalogLoading(false)
-      return undefined
+      return
     }
-    let active = true
     setCatalogLoading(true)
+    setStepError('')
+    try {
+      const [serviceList, employeeList, vehicleList] = await Promise.all([
+        getServiceTypes(),
+        getEmployees(),
+        getVehiclesByCustomer(customerId).catch(() => []),
+      ])
+      setServiceTypes(Array.isArray(serviceList) ? serviceList : [])
+      setEmployees(Array.isArray(employeeList) ? employeeList : [])
+      setMyVehicles(Array.isArray(vehicleList) ? vehicleList : [])
+    } catch (error) {
+      setStepError(getApiErrorMessage(error, 'No fue posible cargar servicios ni especialistas.'))
+    } finally {
+      setCatalogLoading(false)
+    }
+  }, [customerId])
 
-    Promise.all([getServiceTypes(), getEmployees()])
-      .then(([serviceList, employeeList]) => {
-        if (!active) return
-        setServiceTypes(Array.isArray(serviceList) ? serviceList : [])
-        setEmployees(Array.isArray(employeeList) ? employeeList : [])
-      })
-      .catch((error) => {
-        if (active) {
-          setStepError(getApiErrorMessage(error, 'No fue posible cargar servicios ni especialistas.'))
-        }
-      })
-      .finally(() => {
-        if (active) setCatalogLoading(false)
-      })
-
-    if (initialPlate) {
+  useEffect(() => {
+    loadCatalogData()
+    if (customerId && initialPlate) {
       lookupVehicleByPlate(initialPlate)
     }
-
-    return () => {
-      active = false
-    }
-  }, [customerId, initialPlate, lookupVehicleByPlate])
+  }, [customerId, initialPlate, loadCatalogData, lookupVehicleByPlate])
 
   const selectedService = useMemo(
     () => serviceTypes.find((item) => item.id === selectedServiceId) || null,
     [serviceTypes, selectedServiceId],
-  )
-
-  const selectedEmployee = useMemo(
-    () => employees.find((item) => item.id === selectedEmployeeId) || null,
-    [employees, selectedEmployeeId],
   )
 
   useEffect(() => {
@@ -185,10 +193,15 @@ export function BookAppointmentPage() {
     }
     let active = true
     setLoadingAvailability(true)
-    getOccupiedAppointmentSlots(selectedDate, selectedEmployeeId || undefined)
-      .then((list) => {
+    setNowMs(Date.now())
+    Promise.all([
+      getOccupiedAppointmentSlots(selectedDate),
+      getAppointmentsByCustomer(customerId).catch(() => []),
+    ])
+      .then(([slotList, customerAppointments]) => {
         if (active) {
-          setOccupiedSlots(Array.isArray(list) ? list : [])
+          setOccupiedSlots(Array.isArray(slotList) ? slotList : [])
+          setMyAppointments(Array.isArray(customerAppointments) ? customerAppointments : [])
         }
       })
       .catch(() => {
@@ -202,53 +215,91 @@ export function BookAppointmentPage() {
     return () => {
       active = false
     }
-  }, [customerId, selectedDate, selectedEmployeeId])
+  }, [customerId, selectedDate, step, availabilityVersion])
 
-  const isSlotOccupied = useCallback(
+  useEffect(() => {
+    if (step !== 3) return undefined
+    const timer = setInterval(() => {
+      setNowMs(Date.now())
+    }, 30_000)
+    return () => clearInterval(timer)
+  }, [step])
+
+  const serviceDurationMap = useMemo(() => {
+    const map = new Map()
+    for (const service of serviceTypes) {
+      map.set(service.id, Math.max(Number(service.durationMin) || 60, 1))
+    }
+    return map
+  }, [serviceTypes])
+
+  const hasVehicleConflict = useCallback(
     (slotTime) => {
-      if (!selectedDate || !occupiedSlots.length) return false
+      if (!selectedDate || !resolvedVehicle?.id || !myAppointments.length) return false
       const candidateStart = new Date(`${selectedDate}T${slotTime}:00`).getTime()
       if (Number.isNaN(candidateStart)) return false
       const durationMs = Math.max(Number(selectedService?.durationMin) || 60, 1) * 60_000
       const candidateEnd = candidateStart + durationMs
 
-      const matchingSlots = occupiedSlots.filter((item) => {
-        const start = new Date(item.startTime).getTime()
-        const end = new Date(item.endTime).getTime()
-        return !Number.isNaN(start) && !Number.isNaN(end) && candidateStart < end && start < candidateEnd
+      return myAppointments.some((item) => {
+        if (item.vehicleId !== resolvedVehicle.id) return false
+        if (item.status === 'CANCELLED' || item.status === 'FINISHED') return false
+        const start = new Date(item.dateTime).getTime()
+        if (Number.isNaN(start)) return false
+        const itemDurationMin = serviceDurationMap.get(item.serviceTypeId) || 60
+        const end = start + itemDurationMin * 60_000
+        return candidateStart < end && start < candidateEnd
       })
-
-      if (!matchingSlots.length) return false
-      if (selectedEmployeeId) {
-        return matchingSlots.some((item) => item.employeeId === selectedEmployeeId)
-      }
-      if (employees.length > 0) {
-        const busyEmployeeIds = new Set(matchingSlots.map((item) => item.employeeId).filter(Boolean))
-        return employees.every((emp) => busyEmployeeIds.has(emp.id))
-      }
-      return false
     },
-    [employees, occupiedSlots, selectedDate, selectedEmployeeId, selectedService?.durationMin],
+    [myAppointments, resolvedVehicle, selectedDate, selectedService?.durationMin, serviceDurationMap],
+  )
+
+  const findAvailableEmployee = useCallback(
+    (dateStr, timeStr) => {
+      if (!employees.length) return null
+      if (!dateStr || !timeStr) return employees[0]
+      const candidateStart = new Date(`${dateStr}T${timeStr}:00`).getTime()
+      if (Number.isNaN(candidateStart)) return employees[0]
+      const durationMs = Math.max(Number(selectedService?.durationMin) || 60, 1) * 60_000
+      const candidateEnd = candidateStart + durationMs
+
+      const busyEmployeeIds = new Set(
+        occupiedSlots
+          .filter((item) => {
+            const start = new Date(item.startTime).getTime()
+            const end = new Date(item.endTime).getTime()
+            return !Number.isNaN(start) && !Number.isNaN(end) && candidateStart < end && start < candidateEnd
+          })
+          .map((item) => item.employeeId)
+          .filter(Boolean),
+      )
+
+      return employees.find((emp) => !busyEmployeeIds.has(emp.id)) || null
+    },
+    [employees, occupiedSlots, selectedService?.durationMin],
   )
 
   const getSlotStatus = (slot) => {
     if (!slot.available) {
-      return { disabled: true, subtitle: slot.reason || slot.period }
+      return { disabled: true, subtitle: slot.reason || slot.period, busy: false }
     }
     if (!selectedDate) {
-      return { disabled: false, subtitle: slot.period }
+      return { disabled: false, subtitle: slot.period, busy: false }
     }
     const candidate = new Date(`${selectedDate}T${slot.time}:00`)
-    if (Number.isNaN(candidate.getTime()) || candidate.getTime() <= renderTimestamp) {
-      return { disabled: true, subtitle: 'No disponible' }
+    if (Number.isNaN(candidate.getTime()) || candidate.getTime() <= nowMs) {
+      return { disabled: true, subtitle: 'No disponible', busy: false }
     }
     if (!isWithinOperatingHours(candidate)) {
-      return { disabled: true, subtitle: 'Fuera de horario' }
+      return { disabled: true, subtitle: 'Fuera de horario', busy: false }
     }
-    if (isSlotOccupied(slot.time)) {
-      return { disabled: true, subtitle: 'Ocupado' }
+    if (hasVehicleConflict(slot.time)) {
+      return { disabled: true, subtitle: 'Ya tienes cita', busy: true }
     }
-    return { disabled: false, subtitle: slot.period }
+    if (occupiedSlots.length > 0 && employees.length > 0 && findAvailableEmployee(selectedDate, slot.time) === null) {
+      return { disabled: true, subtitle: 'Sin cupo', busy: true }
+    }
+    return { disabled: false, subtitle: slot.period, busy: false }
   }
 
   const handleNextStep = async () => {
@@ -290,8 +341,16 @@ export function BookAppointmentPage() {
         setStepError('Horario de atención: 7am-12pm y 2:30pm-9pm')
         return
       }
-      if (!selectedEmployeeId) {
-        setStepError('Elige al especialista que atenderá tu vehículo.')
+      if (!employees.length) {
+        setStepError('En este momento no hay disponibilidad de agenda configurada. Intenta más tarde.')
+        return
+      }
+      if (hasVehicleConflict(selectedTime)) {
+        setStepError('Tu vehículo ya tiene otra cita programada en ese horario.')
+        return
+      }
+      if (!findAvailableEmployee(selectedDate, selectedTime)) {
+        setStepError('Esta franja ya no tiene especialistas disponibles. Elige otro horario.')
         return
       }
       setStep(4)
@@ -299,7 +358,20 @@ export function BookAppointmentPage() {
   }
 
   const handleConfirmBooking = async () => {
-    if (!customerId || !resolvedVehicle?.id || !selectedServiceId || !selectedEmployeeId) {
+    if (!customerId || !resolvedVehicle?.id || !selectedServiceId) {
+      return
+    }
+
+    if (hasVehicleConflict(selectedTime)) {
+      setStepError('Tu vehículo ya tiene otra cita programada en ese horario.')
+      setStep(3)
+      return
+    }
+
+    const assignedEmployee = findAvailableEmployee(selectedDate, selectedTime)
+    if (!assignedEmployee?.id) {
+      setStepError('No hay especialistas disponibles en esta franja. Elige otro horario.')
+      setStep(3)
       return
     }
 
@@ -316,12 +388,13 @@ export function BookAppointmentPage() {
       const created = await createAppointment({
         customerId,
         vehicleId: resolvedVehicle.id,
-        employeeId: selectedEmployeeId,
+        employeeId: assignedEmployee.id,
         serviceTypeId: selectedServiceId,
-        dateTime: parsedDateTime.toISOString(),
+        dateTime: toLocalOffsetIsoString(parsedDateTime),
         status: 'PENDING',
       })
       setCreatedAppointment(created)
+      setAvailabilityVersion((prev) => prev + 1)
       showToast({
         type: 'success',
         title: 'Cita confirmada',
@@ -343,7 +416,6 @@ export function BookAppointmentPage() {
     setSelectedServiceId('')
     setSelectedDate(todayIso)
     setSelectedTime('')
-    setSelectedEmployeeId('')
     setStepError('')
   }
 
@@ -477,6 +549,40 @@ export function BookAppointmentPage() {
                     </Button>
                   </div>
 
+                  {myVehicles.length > 0 && (
+                    <div className="space-y-2 rounded-xl border border-[#E4E6F2] bg-[#F5F6FB]/70 p-3.5">
+                      <p className="text-[11px] font-semibold tracking-wider text-[#5B5F7A] uppercase">
+                        Tus vehículos registrados
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {myVehicles.map((vehicle) => {
+                          const isCurrent = resolvedVehicle?.id === vehicle.id
+                          return (
+                            <button
+                              key={vehicle.id}
+                              type="button"
+                              onClick={() => {
+                                setPlate(vehicle.plate)
+                                setResolvedVehicle(vehicle)
+                                setPlateError('')
+                              }}
+                              className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                                isCurrent
+                                  ? 'border-[#4F46E5] bg-[#4F46E5] text-white'
+                                  : 'border-[#E4E6F2] bg-white text-[#1E1B4B] hover:border-[#4F46E5]'
+                              }`}
+                            >
+                              <span className="font-mono font-bold">{vehicle.plate}</span>
+                              <span className={isCurrent ? 'text-indigo-100' : 'text-[#5B5F7A]'}>
+                                {vehicle.brand} {vehicle.model}
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {resolvedVehicle && (
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#15803D]/25 bg-[#DCFCE7]/50 p-4">
                       <div>
@@ -517,6 +623,20 @@ export function BookAppointmentPage() {
                       {[1, 2, 3, 4].map((skeleton) => (
                         <div key={skeleton} className="h-28 animate-pulse rounded-xl bg-[#F5F6FB]" />
                       ))}
+                    </div>
+                  ) : serviceTypes.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-[#E4E6F2] bg-[#F5F6FB]/70 p-6 text-center">
+                      <p className="text-sm font-semibold text-[#1E1B4B]">
+                        No hay servicios disponibles en el catálogo todavía
+                      </p>
+                      <p className="mt-1 text-xs text-[#5B5F7A]">
+                        Un administrador debe registrar los tipos de servicio en el panel o aplicar las migraciones iniciales.
+                      </p>
+                      <div className="mt-4">
+                        <Button type="button" variant="secondary" onClick={loadCatalogData}>
+                          Reintentar carga
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -565,7 +685,7 @@ export function BookAppointmentPage() {
                 <div className="space-y-5">
                   <div>
                     <h2 className="text-lg font-semibold text-[#1E1B4B]">
-                      3. Fecha, hora y especialista
+                      3. Fecha y hora
                     </h2>
                     <p className="mt-1 text-sm text-[#5B5F7A]">
                       Horario de atención: 7:00 a. m.–12:00 p. m. y 2:30 p. m.–9:00 p. m.
@@ -599,7 +719,7 @@ export function BookAppointmentPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {TIME_SLOTS.map((slot) => {
-                        const { disabled, subtitle } = getSlotStatus(slot)
+                        const { disabled, subtitle, busy } = getSlotStatus(slot)
                         const active = selectedTime === slot.time && !disabled
                         return (
                           <button
@@ -623,65 +743,11 @@ export function BookAppointmentPage() {
                             <span
                               className={[
                                 'block text-[10px]',
-                                active ? 'text-indigo-100' : subtitle === 'Ocupado' ? 'font-semibold text-[#B91C1C]' : 'text-[#5B5F7A]',
+                                active ? 'text-indigo-100' : busy ? 'font-semibold text-[#B91C1C]' : 'text-[#5B5F7A]',
                               ].join(' ')}
                             >
                               {subtitle}
                             </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-[#1E1B4B]">Especialista</p>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {employees.map((employee) => {
-                        const selected = selectedEmployeeId === employee.id
-                        return (
-                          <button
-                            key={employee.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedEmployeeId(employee.id)
-                              setStepError('')
-                              if (selectedTime) {
-                                const candidateStart = new Date(`${selectedDate}T${selectedTime}:00`).getTime()
-                                const durationMs = Math.max(Number(selectedService?.durationMin) || 60, 1) * 60_000
-                                const candidateEnd = candidateStart + durationMs
-                                const hasConflict = occupiedSlots.some((item) => {
-                                  if (item.employeeId !== employee.id) return false
-                                  const start = new Date(item.startTime).getTime()
-                                  const end = new Date(item.endTime).getTime()
-                                  return candidateStart < end && start < candidateEnd
-                                })
-                                if (hasConflict) {
-                                  setSelectedTime('')
-                                  setStepError(
-                                    `${employee.name} ya tiene ocupado ese horario. Elige otra franja disponible.`,
-                                  )
-                                }
-                              }
-                            }}
-                            className={[
-                              'flex items-center gap-3 rounded-xl border p-3 text-left transition',
-                              selected
-                                ? 'border-[#4F46E5] bg-indigo-50/60 ring-2 ring-[#4F46E5]/20'
-                                : 'border-[#E4E6F2] bg-white hover:border-[#4F46E5]/40',
-                            ].join(' ')}
-                          >
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1E1B4B] text-xs font-bold text-white">
-                              {employee.name?.slice(0, 2).toUpperCase() || 'AC'}
-                            </span>
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-[#1E1B4B]">
-                                {employee.name}
-                              </p>
-                              <p className="truncate text-xs text-[#5B5F7A]">
-                                {employee.role || 'Especialista AutoClean'}
-                              </p>
-                            </div>
                           </button>
                         )
                       })}
@@ -724,7 +790,7 @@ export function BookAppointmentPage() {
                     <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
                       <dt className="text-[#5B5F7A]">Especialista</dt>
                       <dd className="text-right font-semibold text-[#1E1B4B]">
-                        {selectedEmployee?.name}
+                        Asignación automática según disponibilidad
                       </dd>
                     </div>
                     <div className="flex items-center justify-between gap-4 px-4 py-3.5 text-base">

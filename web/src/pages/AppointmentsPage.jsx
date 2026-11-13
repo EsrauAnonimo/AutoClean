@@ -16,6 +16,8 @@ import {
   updateVehicleStatus,
 } from '../services/appointmentService'
 import { getEmployees, getServiceTypes } from '../services/catalogService'
+import { toLocalOffsetIsoString } from '../utils/dateTime'
+import { getVehicleStatusMeta } from '../utils/vehicleStatus'
 import { showToast } from '../utils/toast'
 
 const INITIAL_FORM = {
@@ -31,6 +33,8 @@ const KANBAN_COLUMNS = [
   { key: 'IN_PROGRESS', title: 'En proceso', pillClass: 'bg-[#EDE9FE] text-[#6D28D9]' },
   { key: 'FINISHED', title: 'Finalizada', pillClass: 'bg-[#DCFCE7] text-[#15803D]' },
 ]
+
+const IN_PROGRESS_STAGES = ['WASHING', 'DETAILING', 'READY']
 
 function formatDateTime(value) {
   if (!value) return '—'
@@ -259,7 +263,7 @@ export function AppointmentsPage() {
         vehicleId: form.vehicleId,
         employeeId: form.employeeId,
         serviceTypeId: form.serviceTypeId,
-        dateTime: new Date(form.dateTime).toISOString(),
+        dateTime: toLocalOffsetIsoString(new Date(form.dateTime)),
         status: 'PENDING',
       })
       setAppointments((prev) => [created, ...prev])
@@ -293,21 +297,36 @@ export function AppointmentsPage() {
         </button>
       )
     }
-    if (appointment.status === 'IN_PROGRESS' && appointment.vehicleStatus !== 'READY') {
-      return (
-        <button
-          type="button"
-          disabled={isBusy}
-          onClick={() =>
-            handleVehicleStatusChange(appointment.id, 'READY', 'Vehículo marcado como Listo')
-          }
-          className={`${sizeCls} rounded-xl bg-[#8B5CF6] font-semibold text-white transition hover:bg-[#7C3AED] disabled:opacity-50`}
-        >
-          Marcar como Listo
-        </button>
-      )
-    }
     if (appointment.status === 'IN_PROGRESS') {
+      const currentVehicleStatus = appointment.vehicleStatus || 'WASHING'
+      if (currentVehicleStatus === 'RECEIVED' || currentVehicleStatus === 'WASHING') {
+        return (
+          <button
+            type="button"
+            disabled={isBusy}
+            onClick={() =>
+              handleVehicleStatusChange(appointment.id, 'DETAILING', 'Vehículo en etapa de Detallado')
+            }
+            className={`${sizeCls} rounded-xl bg-[#8B5CF6] font-semibold text-white transition hover:bg-[#7C3AED] disabled:opacity-50`}
+          >
+            Pasar a Detallando
+          </button>
+        )
+      }
+      if (currentVehicleStatus === 'DETAILING') {
+        return (
+          <button
+            type="button"
+            disabled={isBusy}
+            onClick={() =>
+              handleVehicleStatusChange(appointment.id, 'READY', 'Vehículo marcado como Listo')
+            }
+            className={`${sizeCls} rounded-xl bg-[#4F46E5] font-semibold text-white transition hover:bg-[#4338CA] disabled:opacity-50`}
+          >
+            Marcar como Listo
+          </button>
+        )
+      }
       return (
         <button
           type="button"
@@ -504,6 +523,35 @@ export function AppointmentsPage() {
                           </p>
 
                           <div className="mt-3 space-y-2">
+                            {appointment.status === 'IN_PROGRESS' && (
+                              <div className="grid grid-cols-3 gap-1.5 rounded-xl bg-[#F5F6FB] p-1">
+                                {IN_PROGRESS_STAGES.map((stage) => {
+                                  const meta = getVehicleStatusMeta(stage)
+                                  const isCurrent = (appointment.vehicleStatus || 'WASHING') === stage
+                                  return (
+                                    <button
+                                      key={stage}
+                                      type="button"
+                                      disabled={isBusy || isCurrent}
+                                      onClick={() =>
+                                        handleVehicleStatusChange(
+                                          appointment.id,
+                                          stage,
+                                          `Vehículo en estado: ${meta.label}`,
+                                        )
+                                      }
+                                      className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold transition ${
+                                        isCurrent
+                                          ? 'bg-[#1E1B4B] text-white shadow-sm'
+                                          : 'text-[#5B5F7A] hover:bg-white hover:text-[#1E1B4B]'
+                                      } disabled:cursor-default`}
+                                    >
+                                      {meta.label}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            )}
                             {renderPrimaryButton(appointment)}
                             <div className="flex items-center justify-between gap-2 pt-1 text-xs">
                               {appointment.status !== 'FINISHED' &&
@@ -580,7 +628,31 @@ export function AppointmentsPage() {
                           <AppointmentStatusBadge status={appointment.status} />
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
-                          <VehicleStatusBadge status={appointment.vehicleStatus} />
+                          {appointment.status === 'IN_PROGRESS' ? (
+                            <select
+                              aria-label={`Estado del vehículo ${appointment.vehiclePlate || ''}`}
+                              disabled={updatingId === appointment.id}
+                              value={appointment.vehicleStatus || 'WASHING'}
+                              onChange={(e) => {
+                                const nextStage = e.target.value
+                                const meta = getVehicleStatusMeta(nextStage)
+                                handleVehicleStatusChange(
+                                  appointment.id,
+                                  nextStage,
+                                  `Vehículo en estado: ${meta.label}`,
+                                )
+                              }}
+                              className="h-[34px] rounded-lg border border-[#E4E6F2] bg-white px-2 text-xs font-semibold text-[#1E1B4B] outline-none focus:border-[#4F46E5]"
+                            >
+                              {IN_PROGRESS_STAGES.map((stage) => (
+                                <option key={stage} value={stage}>
+                                  {getVehicleStatusMeta(stage).label}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <VehicleStatusBadge status={appointment.vehicleStatus} />
+                          )}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-right">
                           <div className="inline-flex items-center gap-2">
