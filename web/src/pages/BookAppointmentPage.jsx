@@ -103,7 +103,6 @@ export function BookAppointmentPage() {
   const [selectedServiceId, setSelectedServiceId] = useState('')
   const [selectedDate, setSelectedDate] = useState(todayIso)
   const [selectedTime, setSelectedTime] = useState('')
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState('')
   const [occupiedSlots, setOccupiedSlots] = useState([])
   const [loadingAvailability, setLoadingAvailability] = useState(false)
 
@@ -180,11 +179,6 @@ export function BookAppointmentPage() {
     [serviceTypes, selectedServiceId],
   )
 
-  const selectedEmployee = useMemo(
-    () => employees.find((item) => item.id === selectedEmployeeId) || null,
-    [employees, selectedEmployeeId],
-  )
-
   useEffect(() => {
     if (!customerId || !selectedDate) {
       setOccupiedSlots([])
@@ -192,7 +186,7 @@ export function BookAppointmentPage() {
     }
     let active = true
     setLoadingAvailability(true)
-    getOccupiedAppointmentSlots(selectedDate, selectedEmployeeId || undefined)
+    getOccupiedAppointmentSlots(selectedDate)
       .then((list) => {
         if (active) {
           setOccupiedSlots(Array.isArray(list) ? list : [])
@@ -209,33 +203,39 @@ export function BookAppointmentPage() {
     return () => {
       active = false
     }
-  }, [customerId, selectedDate, selectedEmployeeId])
+  }, [customerId, selectedDate])
 
-  const isSlotOccupied = useCallback(
-    (slotTime) => {
-      if (!selectedDate || !occupiedSlots.length) return false
-      const candidateStart = new Date(`${selectedDate}T${slotTime}:00`).getTime()
-      if (Number.isNaN(candidateStart)) return false
+  const findAvailableEmployee = useCallback(
+    (dateStr, timeStr) => {
+      if (!employees.length) return null
+      if (!dateStr || !timeStr) return employees[0]
+      const candidateStart = new Date(`${dateStr}T${timeStr}:00`).getTime()
+      if (Number.isNaN(candidateStart)) return employees[0]
       const durationMs = Math.max(Number(selectedService?.durationMin) || 60, 1) * 60_000
       const candidateEnd = candidateStart + durationMs
 
-      const matchingSlots = occupiedSlots.filter((item) => {
-        const start = new Date(item.startTime).getTime()
-        const end = new Date(item.endTime).getTime()
-        return !Number.isNaN(start) && !Number.isNaN(end) && candidateStart < end && start < candidateEnd
-      })
+      const busyEmployeeIds = new Set(
+        occupiedSlots
+          .filter((item) => {
+            const start = new Date(item.startTime).getTime()
+            const end = new Date(item.endTime).getTime()
+            return !Number.isNaN(start) && !Number.isNaN(end) && candidateStart < end && start < candidateEnd
+          })
+          .map((item) => item.employeeId)
+          .filter(Boolean),
+      )
 
-      if (!matchingSlots.length) return false
-      if (selectedEmployeeId) {
-        return matchingSlots.some((item) => item.employeeId === selectedEmployeeId)
-      }
-      if (employees.length > 0) {
-        const busyEmployeeIds = new Set(matchingSlots.map((item) => item.employeeId).filter(Boolean))
-        return employees.every((emp) => busyEmployeeIds.has(emp.id))
-      }
-      return false
+      return employees.find((emp) => !busyEmployeeIds.has(emp.id)) || null
     },
-    [employees, occupiedSlots, selectedDate, selectedEmployeeId, selectedService?.durationMin],
+    [employees, occupiedSlots, selectedService?.durationMin],
+  )
+
+  const isSlotOccupied = useCallback(
+    (slotTime) => {
+      if (!selectedDate || !occupiedSlots.length || !employees.length) return false
+      return findAvailableEmployee(selectedDate, slotTime) === null
+    },
+    [employees.length, findAvailableEmployee, occupiedSlots.length, selectedDate],
   )
 
   const getSlotStatus = (slot) => {
@@ -297,8 +297,12 @@ export function BookAppointmentPage() {
         setStepError('Horario de atención: 7am-12pm y 2:30pm-9pm')
         return
       }
-      if (!selectedEmployeeId) {
-        setStepError('Elige al especialista que atenderá tu vehículo.')
+      if (!employees.length) {
+        setStepError('En este momento no hay disponibilidad de agenda configurada. Intenta más tarde.')
+        return
+      }
+      if (!findAvailableEmployee(selectedDate, selectedTime)) {
+        setStepError('Esta franja ya no tiene especialistas disponibles. Elige otro horario.')
         return
       }
       setStep(4)
@@ -306,7 +310,14 @@ export function BookAppointmentPage() {
   }
 
   const handleConfirmBooking = async () => {
-    if (!customerId || !resolvedVehicle?.id || !selectedServiceId || !selectedEmployeeId) {
+    if (!customerId || !resolvedVehicle?.id || !selectedServiceId) {
+      return
+    }
+
+    const assignedEmployee = findAvailableEmployee(selectedDate, selectedTime)
+    if (!assignedEmployee?.id) {
+      setStepError('No hay especialistas disponibles en esta franja. Elige otro horario.')
+      setStep(3)
       return
     }
 
@@ -323,7 +334,7 @@ export function BookAppointmentPage() {
       const created = await createAppointment({
         customerId,
         vehicleId: resolvedVehicle.id,
-        employeeId: selectedEmployeeId,
+        employeeId: assignedEmployee.id,
         serviceTypeId: selectedServiceId,
         dateTime: parsedDateTime.toISOString(),
         status: 'PENDING',
@@ -350,7 +361,6 @@ export function BookAppointmentPage() {
     setSelectedServiceId('')
     setSelectedDate(todayIso)
     setSelectedTime('')
-    setSelectedEmployeeId('')
     setStepError('')
   }
 
@@ -620,7 +630,7 @@ export function BookAppointmentPage() {
                 <div className="space-y-5">
                   <div>
                     <h2 className="text-lg font-semibold text-[#1E1B4B]">
-                      3. Fecha, hora y especialista
+                      3. Fecha y hora
                     </h2>
                     <p className="mt-1 text-sm text-[#5B5F7A]">
                       Horario de atención: 7:00 a. m.–12:00 p. m. y 2:30 p. m.–9:00 p. m.
@@ -688,76 +698,6 @@ export function BookAppointmentPage() {
                       })}
                     </div>
                   </div>
-
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-[#1E1B4B]">Especialista</p>
-                    {employees.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-[#E4E6F2] bg-[#F5F6FB]/70 p-5 text-center">
-                        <p className="text-sm font-semibold text-[#1E1B4B]">
-                          No hay especialistas registrados todavía
-                        </p>
-                        <p className="mt-1 text-xs text-[#5B5F7A]">
-                          Pide al administrador registrar al menos un empleado operativo para poder asignar tu cita.
-                        </p>
-                        <div className="mt-3">
-                          <Button type="button" variant="secondary" onClick={loadCatalogData}>
-                            Reintentar carga
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="grid gap-2 sm:grid-cols-2">
-                      {employees.map((employee) => {
-                        const selected = selectedEmployeeId === employee.id
-                        return (
-                          <button
-                            key={employee.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedEmployeeId(employee.id)
-                              setStepError('')
-                              if (selectedTime) {
-                                const candidateStart = new Date(`${selectedDate}T${selectedTime}:00`).getTime()
-                                const durationMs = Math.max(Number(selectedService?.durationMin) || 60, 1) * 60_000
-                                const candidateEnd = candidateStart + durationMs
-                                const hasConflict = occupiedSlots.some((item) => {
-                                  if (item.employeeId !== employee.id) return false
-                                  const start = new Date(item.startTime).getTime()
-                                  const end = new Date(item.endTime).getTime()
-                                  return candidateStart < end && start < candidateEnd
-                                })
-                                if (hasConflict) {
-                                  setSelectedTime('')
-                                  setStepError(
-                                    `${employee.name} ya tiene ocupado ese horario. Elige otra franja disponible.`,
-                                  )
-                                }
-                              }
-                            }}
-                            className={[
-                              'flex items-center gap-3 rounded-xl border p-3 text-left transition',
-                              selected
-                                ? 'border-[#4F46E5] bg-indigo-50/60 ring-2 ring-[#4F46E5]/20'
-                                : 'border-[#E4E6F2] bg-white hover:border-[#4F46E5]/40',
-                            ].join(' ')}
-                          >
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1E1B4B] text-xs font-bold text-white">
-                              {employee.name?.slice(0, 2).toUpperCase() || 'AC'}
-                            </span>
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-[#1E1B4B]">
-                                {employee.name}
-                              </p>
-                              <p className="truncate text-xs text-[#5B5F7A]">
-                                {employee.role || 'Especialista AutoClean'}
-                              </p>
-                            </div>
-                          </button>
-                        )
-                      })}
-                      </div>
-                    )}
-                  </div>
                 </div>
               )}
 
@@ -795,7 +735,7 @@ export function BookAppointmentPage() {
                     <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
                       <dt className="text-[#5B5F7A]">Especialista</dt>
                       <dd className="text-right font-semibold text-[#1E1B4B]">
-                        {selectedEmployee?.name}
+                        Asignación automática según disponibilidad
                       </dd>
                     </div>
                     <div className="flex items-center justify-between gap-4 px-4 py-3.5 text-base">
