@@ -82,6 +82,14 @@ class AuthControllerTest {
     }
 
     @Test
+    void shouldReturnBadRequestRatherThanForbiddenWhenRegisterPayloadIsInvalid() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void shouldRejectProtectedBusinessEndpointWithoutTokenAndAllowWithValidJwt() throws Exception {
         mockMvc.perform(get("/api/customers"))
                 .andExpect(status().isForbidden());
