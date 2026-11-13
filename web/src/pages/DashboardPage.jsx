@@ -3,13 +3,14 @@ import { MainLayout } from '../components/MainLayout'
 import { useAuth } from '../context/AuthContext'
 
 const MODULES = [
-  { name: 'Clientes y Vehículos', status: 'API lista (/api/customers, /api/vehicles)', to: null },
+  { name: 'Clientes', status: 'CRUD activo (/api/customers)', to: '/customers' },
+  { name: 'Vehículos', status: 'CRUD activo (/api/vehicles)', to: '/vehicles' },
   { name: 'Catálogo de Servicios', status: 'CRUD activo (/api/service-types)', to: '/catalog' },
   { name: 'Empleados', status: 'CRUD activo (/api/employees)', to: '/employees' },
   { name: 'Agenda de Citas', status: 'Agenda y estados (/api/appointments)', to: '/appointments' },
   { name: 'Insumos', status: 'Inventario CRUD (/api/supplies)', to: '/supplies' },
+  { name: 'Reportes Gerenciales', status: 'Servicios e Ingresos vs Costos (/api/reports)', to: '/reports' },
   { name: 'Motor de Costeo', status: 'API lista (/api/costing/estimate)', to: null },
-  { name: 'Reportes Gerenciales', status: 'API lista (/api/reports/services, /api/reports/revenue)', to: null },
 ]
 
 /**

@@ -4,10 +4,13 @@ import { Button } from './Button'
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Panel principal' },
+  { to: '/customers', label: 'Clientes' },
+  { to: '/vehicles', label: 'Vehículos' },
   { to: '/appointments', label: 'Agenda de Citas' },
   { to: '/catalog', label: 'Catálogo' },
   { to: '/employees', label: 'Empleados' },
   { to: '/supplies', label: 'Insumos' },
+  { to: '/reports', label: 'Reportes' },
 ]
 
 /**
