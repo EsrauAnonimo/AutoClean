@@ -1,8 +1,11 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
+import { AppointmentsPage } from './pages/AppointmentsPage'
+import { CatalogPage } from './pages/CatalogPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
+import { SuppliesPage } from './pages/SuppliesPage'
 
 /**
  * Enrutador principal de AutoClean Web.
@@ -18,6 +21,38 @@ function App() {
             element={
               <ProtectedRoute>
                 <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/appointments"
+            element={
+              <ProtectedRoute>
+                <AppointmentsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/catalog"
+            element={
+              <ProtectedRoute>
+                <CatalogPage key="services" initialTab="services" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/employees"
+            element={
+              <ProtectedRoute>
+                <CatalogPage key="employees" initialTab="employees" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/supplies"
+            element={
+              <ProtectedRoute>
+                <SuppliesPage />
               </ProtectedRoute>
             }
           />
