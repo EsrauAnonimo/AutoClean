@@ -108,6 +108,25 @@ export function SuppliesPage() {
     }
   }
 
+  const handleQuickAdjustStock = async (supply, delta) => {
+    const nextStock = Math.max(0, (Number(supply.stock) || 0) + delta)
+    if (nextStock === Number(supply.stock)) return
+    setBusyId(supply.id)
+    setErrorMessage('')
+    try {
+      const updated = await updateSupply(supply.id, {
+        name: supply.name,
+        stock: nextStock,
+        unit: supply.unit,
+      })
+      setSupplies((prev) => prev.map((item) => (item.id === supply.id ? updated : item)))
+    } catch (error) {
+      setErrorMessage(getApiErrorMessage(error, 'No fue posible ajustar el stock.'))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   const handleSubmit = async (event) => {
     event.preventDefault()
     setErrorMessage('')
@@ -310,7 +329,25 @@ export function SuppliesPage() {
                         </td>
                         <td className="px-5 py-3.5 text-[#5B5F7A]">{supply.unit}</td>
                         <td className="whitespace-nowrap px-5 py-3.5 text-right">
-                          <div className="inline-flex items-center gap-2">
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              aria-label={`Descontar stock de ${supply.name}`}
+                              disabled={busyId === supply.id || stockNum === 0}
+                              onClick={() => handleQuickAdjustStock(supply, -1)}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E4E6F2] text-xs font-bold text-[#1E1B4B] transition hover:border-[#4F46E5] disabled:opacity-40"
+                            >
+                              -1
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Reponer stock de ${supply.name}`}
+                              disabled={busyId === supply.id}
+                              onClick={() => handleQuickAdjustStock(supply, 1)}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E4E6F2] text-xs font-bold text-[#1E1B4B] transition hover:border-[#4F46E5] disabled:opacity-40"
+                            >
+                              +1
+                            </button>
                             <Button
                               variant="ghost"
                               className="h-9 px-3 text-xs text-[#4F46E5]"

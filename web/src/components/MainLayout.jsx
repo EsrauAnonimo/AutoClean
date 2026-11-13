@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { getAppointments } from '../services/appointmentService'
+import { getSupplies } from '../services/supplyService'
 import { getHomeRouteByRole } from '../utils/authRedirect'
 import { showToast } from '../utils/toast'
 import { AutoCleanLogo } from './AutoCleanLogo'
@@ -116,8 +118,69 @@ export function MainLayout({ children }) {
   const location = useLocation()
   const [globalQuery, setGlobalQuery] = useState('')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [alertsOpen, setAlertsOpen] = useState(false)
+  const [alertsData, setAlertsData] = useState({ lowSupplies: [], readyVehicles: [], pendingToday: [] })
+  const alertsRef = useRef(null)
 
   const isClient = user?.role === 'CLIENTE'
+
+  const loadOperationalAlerts = useCallback(async () => {
+    if (isClient || !user?.role) return
+    try {
+      const [supplyList, appointmentList] = await Promise.all([
+        getSupplies().catch(() => []),
+        getAppointments().catch(() => []),
+      ])
+      const now = new Date()
+      const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+        now.getDate(),
+      ).padStart(2, '0')}`
+
+      const lowSupplies = (Array.isArray(supplyList) ? supplyList : []).filter(
+        (item) => Number(item.stock) <= 5,
+      )
+      const safeAppointments = Array.isArray(appointmentList) ? appointmentList : []
+      const readyVehicles = safeAppointments.filter(
+        (item) => item.vehicleStatus === 'READY' && item.status !== 'CANCELLED' && item.status !== 'FINISHED',
+      )
+      const pendingToday = safeAppointments.filter((item) => {
+        if (item.status !== 'PENDING' || !item.dateTime) return false
+        const d = new Date(item.dateTime)
+        if (Number.isNaN(d.getTime())) return false
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+          d.getDate(),
+        ).padStart(2, '0')}`
+        return key === todayKey
+      })
+
+      setAlertsData({ lowSupplies, readyVehicles, pendingToday })
+    } catch {
+      // Silencioso en el layout para no interrumpir navegación
+    }
+  }, [isClient, user?.role])
+
+  useEffect(() => {
+    loadOperationalAlerts()
+  }, [loadOperationalAlerts, location.pathname])
+
+  useEffect(() => {
+    if (!alertsOpen) return undefined
+    const handleOutsideClick = (event) => {
+      if (alertsRef.current && !alertsRef.current.contains(event.target)) {
+        setAlertsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [alertsOpen])
+
+  const totalAlerts = useMemo(
+    () =>
+      alertsData.lowSupplies.length +
+      alertsData.readyVehicles.length +
+      alertsData.pendingToday.length,
+    [alertsData],
+  )
   const homeRoute = getHomeRouteByRole(user?.role)
   const roleLabel = ROLE_LABELS[user?.role] || 'Usuario'
   const displayName = getCapitalizedUserName(user)
@@ -334,23 +397,129 @@ export function MainLayout({ children }) {
                 </form>
               </div>
 
-              {/* Header Admin limpio: solo campana y avatar pequeño */}
+              {/* Header Admin limpio: solo campana de alertas reales y avatar pequeño */}
               <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={() =>
-                    showToast({
-                      type: 'info',
-                      title: 'Operación al día',
-                      description: 'Horario activo: 7:00 a. m. – 12:00 p. m. y 2:30 p. m. – 9:00 p. m.',
-                    })
-                  }
-                  aria-label="Notificaciones"
-                  className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#E4E6F2] bg-white text-[#5B5F7A] transition hover:bg-[#F5F6FB] hover:text-[#1E1B4B]"
-                >
-                  <NavIcon name="bell" />
-                  <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-[#8B5CF6]" />
-                </button>
+                <div ref={alertsRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextOpen = !alertsOpen
+                      setAlertsOpen(nextOpen)
+                      if (nextOpen) {
+                        loadOperationalAlerts()
+                      }
+                    }}
+                    aria-label="Notificaciones operativas"
+                    aria-expanded={alertsOpen}
+                    className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#E4E6F2] bg-white text-[#5B5F7A] transition hover:bg-[#F5F6FB] hover:text-[#1E1B4B]"
+                  >
+                    <NavIcon name="bell" />
+                    {totalAlerts > 0 && (
+                      <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#4F46E5] px-1 text-[10px] font-bold text-white">
+                        {totalAlerts > 9 ? '9+' : totalAlerts}
+                      </span>
+                    )}
+                  </button>
+
+                  {alertsOpen && (
+                    <div className="absolute right-0 z-40 mt-2 w-80 overflow-hidden rounded-2xl border border-[#E4E6F2] bg-white shadow-float">
+                      <div className="flex items-center justify-between border-b border-[#E4E6F2] px-4 py-3">
+                        <p className="text-xs font-semibold tracking-wider text-[#1E1B4B] uppercase">
+                          Alertas operativas
+                        </p>
+                        <span className="rounded-full bg-[#F5F6FB] px-2 py-0.5 text-[11px] font-semibold text-[#5B5F7A]">
+                          {totalAlerts} activas
+                        </span>
+                      </div>
+
+                      <div className="max-h-80 divide-y divide-[#E4E6F2] overflow-y-auto">
+                        {totalAlerts === 0 ? (
+                          <div className="px-4 py-6 text-center text-xs text-[#5B5F7A]">
+                            Todo al día: sin insumos bajos ni entregas pendientes.
+                          </div>
+                        ) : (
+                          <>
+                            {alertsData.lowSupplies.map((supply) => (
+                              <button
+                                key={`supply-${supply.id}`}
+                                type="button"
+                                onClick={() => {
+                                  setAlertsOpen(false)
+                                  navigate('/supplies')
+                                }}
+                                className="flex w-full items-start justify-between gap-2 px-4 py-3 text-left transition hover:bg-[#F5F6FB]"
+                              >
+                                <div>
+                                  <p className="text-xs font-semibold text-[#1E1B4B]">
+                                    Stock bajo: {supply.name}
+                                  </p>
+                                  <p className="mt-0.5 text-[11px] text-[#5B5F7A]">
+                                    Quedan {supply.stock} {supply.unit} en inventario
+                                  </p>
+                                </div>
+                                <span className="shrink-0 rounded-full bg-[#FEE2E2] px-2 py-0.5 text-[10px] font-semibold text-[#B91C1C]">
+                                  Insumos
+                                </span>
+                              </button>
+                            ))}
+
+                            {alertsData.readyVehicles.map((item) => (
+                              <button
+                                key={`ready-${item.id}`}
+                                type="button"
+                                onClick={() => {
+                                  setAlertsOpen(false)
+                                  navigate('/appointments')
+                                }}
+                                className="flex w-full items-start justify-between gap-2 px-4 py-3 text-left transition hover:bg-[#F5F6FB]"
+                              >
+                                <div>
+                                  <p className="text-xs font-semibold text-[#1E1B4B]">
+                                    Listo para entrega: {item.vehiclePlate}
+                                  </p>
+                                  <p className="mt-0.5 text-[11px] text-[#5B5F7A]">
+                                    {item.customerName} · {item.serviceTypeName}
+                                  </p>
+                                </div>
+                                <span className="shrink-0 rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[10px] font-semibold text-[#15803D]">
+                                  Listo
+                                </span>
+                              </button>
+                            ))}
+
+                            {alertsData.pendingToday.map((item) => (
+                              <button
+                                key={`pending-${item.id}`}
+                                type="button"
+                                onClick={() => {
+                                  setAlertsOpen(false)
+                                  navigate('/appointments')
+                                }}
+                                className="flex w-full items-start justify-between gap-2 px-4 py-3 text-left transition hover:bg-[#F5F6FB]"
+                              >
+                                <div>
+                                  <p className="text-xs font-semibold text-[#1E1B4B]">
+                                    Cita pendiente hoy: {item.vehiclePlate}
+                                  </p>
+                                  <p className="mt-0.5 text-[11px] text-[#5B5F7A]">
+                                    {item.serviceTypeName} · {item.employeeName}
+                                  </p>
+                                </div>
+                                <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                                  Hoy
+                                </span>
+                              </button>
+                            ))}
+                          </>
+                        )}
+                      </div>
+
+                      <div className="border-t border-[#E4E6F2] bg-[#F5F6FB] px-4 py-2 text-[11px] text-[#5B5F7A]">
+                        Horario: 7:00 a. m. – 12:00 p. m. y 2:30 p. m. – 9:00 p. m.
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <span
                   title={displayName || roleLabel}
                   className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4F46E5] text-xs font-semibold text-white"

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Button } from '../components/Button'
+import { CostingWorkspace } from '../components/CostingWorkspace'
 import { Input } from '../components/Input'
 import { MainLayout } from '../components/MainLayout'
 import { getApiErrorMessage } from '../services/api'
@@ -36,6 +38,9 @@ function formatMoney(value) {
  * Vista gerencial de reportes por periodo: servicios realizados e ingresos vs costos.
  */
 export function ReportsPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = searchParams.get('vista') === 'costeo' ? 'costeo' : 'reports'
+
   const initialRange = useMemo(() => getDefaultRange(), [])
   const [from, setFrom] = useState(initialRange.from)
   const [to, setTo] = useState(initialRange.to)
@@ -116,14 +121,57 @@ export function ReportsPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-[28px] font-bold tracking-tight text-[#1E1B4B]">Reportes</h1>
-          <p className="mt-1 text-sm text-[#5B5F7A]">
-            Servicios atendidos y comparativa de ingresos vs costos por rango de fechas.
-          </p>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-[28px] font-bold tracking-tight text-[#1E1B4B]">
+              {activeTab === 'costeo' ? 'Motor de costeo' : 'Reportes'}
+            </h1>
+            <p className="mt-1 text-sm text-[#5B5F7A]">
+              {activeTab === 'costeo'
+                ? 'Simula costos directos por servicio o cita y controla el margen de rentabilidad.'
+                : 'Servicios atendidos y comparativa de ingresos vs costos por rango de fechas.'}
+            </p>
+          </div>
+
+          <div
+            role="tablist"
+            aria-label="Cambiar entre reportes y costeo"
+            className="inline-flex rounded-xl border border-[#E4E6F2] bg-white p-1 shadow-xs"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'reports'}
+              onClick={() => setSearchParams({})}
+              className={`rounded-lg px-4 py-2 text-xs font-semibold transition ${
+                activeTab === 'reports'
+                  ? 'bg-[#4F46E5] text-white'
+                  : 'text-[#5B5F7A] hover:text-[#1E1B4B]'
+              }`}
+            >
+              Reportes
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'costeo'}
+              onClick={() => setSearchParams({ vista: 'costeo' })}
+              className={`rounded-lg px-4 py-2 text-xs font-semibold transition ${
+                activeTab === 'costeo'
+                  ? 'bg-[#4F46E5] text-white'
+                  : 'text-[#5B5F7A] hover:text-[#1E1B4B]'
+              }`}
+            >
+              Costeo
+            </button>
+          </div>
         </div>
 
-        <section className="rounded-2xl border border-[#E4E6F2] bg-white p-6 shadow-card">
+        {activeTab === 'costeo' ? (
+          <CostingWorkspace onEstimateCreated={() => fetchReports(from, to)} />
+        ) : (
+          <>
+            <section className="rounded-2xl border border-[#E4E6F2] bg-white p-6 shadow-card">
           <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-3">
             <Input
               id="reportFrom"
@@ -303,6 +351,8 @@ export function ReportsPage() {
             )}
           </section>
         </div>
+          </>
+        )}
       </div>
     </MainLayout>
   )

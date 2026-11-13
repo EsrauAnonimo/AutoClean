@@ -2,8 +2,10 @@ package com.autoclean.service;
 
 import com.autoclean.dto.appointment.AppointmentRequestDto;
 import com.autoclean.dto.appointment.AppointmentResponseDto;
+import com.autoclean.dto.appointment.OccupiedSlotDto;
 import com.autoclean.model.AppointmentStatus;
 import com.autoclean.model.VehicleStatus;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -92,5 +94,14 @@ public interface AppointmentService {
      * @return cita actualizada con el estado del vehículo
      */
     AppointmentResponseDto updateVehicleStatus(UUID appointmentId, VehicleStatus vehicleStatus);
+
+    /**
+     * Consulta las franjas horarias ya ocupadas alrededor de una fecha para evitar cruces al agendar.
+     *
+     * @param date fecha objetivo en formato calendario
+     * @param employeeId identificador opcional de especialista para filtrar ocupación
+     * @return franjas ocupadas activas
+     */
+    List<OccupiedSlotDto> findOccupiedSlots(LocalDate date, UUID employeeId);
 }
 

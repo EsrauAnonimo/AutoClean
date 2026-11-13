@@ -3,13 +3,16 @@ package com.autoclean.controller;
 import com.autoclean.dto.appointment.AppointmentRequestDto;
 import com.autoclean.dto.appointment.AppointmentResponseDto;
 import com.autoclean.dto.appointment.AppointmentStatusUpdateDto;
+import com.autoclean.dto.appointment.OccupiedSlotDto;
 import com.autoclean.dto.appointment.VehicleStatusUpdateDto;
 import com.autoclean.model.AppointmentStatus;
 import com.autoclean.service.AppointmentService;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -54,6 +57,13 @@ public class AppointmentController {
             result = appointmentService.findAll();
         }
         return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/availability")
+    public ResponseEntity<List<OccupiedSlotDto>> getOccupiedSlots(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) UUID employeeId) {
+        return ResponseEntity.ok(appointmentService.findOccupiedSlots(date, employeeId));
     }
 
     @GetMapping("/{id}")
