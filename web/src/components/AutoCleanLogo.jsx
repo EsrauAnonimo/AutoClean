@@ -118,7 +118,7 @@ export function AutoCleanLogo({
 
       <div className="leading-tight">
         <p
-          className={`${titleSizes[size] || titleSizes.md} font-extrabold tracking-tight ${
+          className={`${titleSizes[size] || titleSizes.md} font-semibold tracking-tight ${
             isLightSurface ? 'text-[#1E1B4B]' : 'text-white'
           }`}
         >
@@ -127,7 +127,7 @@ export function AutoCleanLogo({
         </p>
         {subtitle && (
           <p
-            className={`text-[11px] font-medium ${
+            className={`text-[11px] font-normal ${
               isLightSurface ? 'text-[#5B5F7A]' : 'text-indigo-200/90'
             }`}
           >
@@ -138,3 +138,4 @@ export function AutoCleanLogo({
     </div>
   )
 }
+

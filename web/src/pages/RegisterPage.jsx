@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { AuthHeroPanel } from '../components/AuthHeroPanel'
+import { AutoCleanLogo } from '../components/AutoCleanLogo'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { useAuth } from '../context/AuthContext'
@@ -73,20 +74,26 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F6FB] lg:grid lg:grid-cols-12">
-      <AuthHeroPanel variant="register" />
+    <div className="min-h-screen bg-[#F5F6FB] lg:grid lg:grid-cols-2">
+      <AuthHeroPanel headline="Tu auto, siempre impecable." />
 
-      <div className="flex items-center justify-center px-4 py-8 sm:px-8 lg:col-span-7">
-        <div className="w-full max-w-[460px] rounded-2xl border border-[#E4E6F2] bg-white p-6 shadow-card sm:p-8">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#F5F6FB] px-6 py-10">
+        <div className="mb-8 lg:hidden">
+          <AutoCleanLogo size="lg" tone="light" />
+        </div>
+
+        <div className="w-full max-w-[400px] rounded-2xl border border-[#E4E6F2] bg-white p-7 shadow-card sm:p-8">
           <div className="mb-6">
-            <h2 className="text-[22px] font-semibold text-[#1E1B4B]">Registro rápido</h2>
-            <p className="mt-1 text-[14px] text-[#5B5F7A]">Completa tus datos para comenzar</p>
+            <h1 className="text-[24px] leading-tight font-semibold text-[#1E1B4B]">Crea tu cuenta</h1>
+            <p className="mt-1.5 text-[15px] font-normal text-[#5B5F7A]">
+              Completa tus datos para comenzar
+            </p>
           </div>
 
           {errorMessage && (
             <div
               role="alert"
-              className="mb-5 rounded-xl border border-[#FECACA] bg-[#FEE2E2] px-4 py-3 text-sm font-medium text-[#B91C1C]"
+              className="mb-5 rounded-xl border border-[#FECACA] bg-[#FEE2E2] px-4 py-3 text-sm font-normal text-[#B91C1C]"
             >
               {errorMessage}
             </div>
@@ -137,12 +144,12 @@ export function RegisterPage() {
               required
             />
 
-            <Button type="submit" size="l" loading={submitting} className="w-full shadow-float">
+            <Button type="submit" size="l" loading={submitting} className="w-full">
               Crear cuenta
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-[14px] text-[#5B5F7A]">
+          <p className="mt-6 text-center text-[14px] font-normal text-[#5B5F7A]">
             ¿Ya tienes cuenta?{' '}
             <Link to="/login" className="font-semibold text-[#4F46E5] hover:text-[#4338CA]">
               Inicia sesión

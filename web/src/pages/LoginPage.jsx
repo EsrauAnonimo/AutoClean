@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { AuthHeroPanel } from '../components/AuthHeroPanel'
+import { AutoCleanLogo } from '../components/AutoCleanLogo'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { useAuth } from '../context/AuthContext'
@@ -54,23 +55,26 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F6FB] lg:grid lg:grid-cols-12">
-      <AuthHeroPanel variant="login" />
+    <div className="min-h-screen bg-[#F5F6FB] lg:grid lg:grid-cols-2">
+      <AuthHeroPanel headline="Tu auto, siempre impecable." />
 
-      {/* Formulario derecho */}
-      <div className="flex items-center justify-center px-4 py-8 sm:px-8 lg:col-span-7">
-        <div className="w-full max-w-[440px] rounded-2xl border border-[#E4E6F2] bg-white p-6 shadow-card sm:p-8">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#F5F6FB] px-6 py-10">
+        <div className="mb-8 lg:hidden">
+          <AutoCleanLogo size="lg" tone="light" />
+        </div>
+
+        <div className="w-full max-w-[400px] rounded-2xl border border-[#E4E6F2] bg-white p-7 shadow-card sm:p-8">
           <div className="mb-6">
-            <h2 className="text-[22px] font-semibold text-[#1E1B4B]">Inicia sesión</h2>
-            <p className="mt-1 text-[14px] text-[#5B5F7A]">
-              Ingresa a tu cuenta de AutoClean para continuar
+            <h1 className="text-[24px] leading-tight font-semibold text-[#1E1B4B]">Inicia sesión</h1>
+            <p className="mt-1.5 text-[15px] font-normal text-[#5B5F7A]">
+              Ingresa tus datos para continuar
             </p>
           </div>
 
           {errorMessage && (
             <div
               role="alert"
-              className="mb-5 rounded-xl border border-[#FECACA] bg-[#FEE2E2] px-4 py-3 text-sm font-medium text-[#B91C1C]"
+              className="mb-5 rounded-xl border border-[#FECACA] bg-[#FEE2E2] px-4 py-3 text-sm font-normal text-[#B91C1C]"
             >
               {errorMessage}
             </div>
@@ -102,7 +106,7 @@ export function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="block h-[52px] w-full rounded-xl border border-[#E4E6F2] bg-white pl-3.5 pr-20 text-[15px] text-[#1E1B4B] placeholder-[#5B5F7A]/60 transition hover:border-[#8B5CF6]/50 focus:border-[#4F46E5] focus:ring-4 focus:ring-[#4F46E5]/15 focus:outline-none"
+                  className="block h-[52px] w-full rounded-xl border border-[#E4E6F2] bg-white pl-3.5 pr-20 text-[15px] font-normal text-[#1E1B4B] placeholder-[#5B5F7A]/60 transition focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/15 focus:outline-none"
                 />
                 <button
                   type="button"
@@ -114,14 +118,14 @@ export function LoginPage() {
               </div>
             </div>
 
-            <Button type="submit" size="l" loading={submitting} className="w-full shadow-float">
+            <Button type="submit" size="l" loading={submitting} className="w-full">
               Ingresar
             </Button>
           </form>
 
           <div className="my-5 flex items-center gap-3">
             <span className="h-px flex-1 bg-[#E4E6F2]" />
-            <span className="text-xs font-medium text-[#5B5F7A]">o continúa con</span>
+            <span className="text-xs font-normal text-[#5B5F7A]">o</span>
             <span className="h-px flex-1 bg-[#E4E6F2]" />
           </div>
 
@@ -150,7 +154,7 @@ export function LoginPage() {
             Continuar con Google
           </a>
 
-          <p className="mt-6 text-center text-[14px] text-[#5B5F7A]">
+          <p className="mt-6 text-center text-[14px] font-normal text-[#5B5F7A]">
             ¿Aún no tienes cuenta?{' '}
             <Link to="/register" className="font-semibold text-[#4F46E5] hover:text-[#4338CA]">
               Regístrate aquí
