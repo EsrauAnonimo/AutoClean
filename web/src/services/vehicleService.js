@@ -10,6 +10,17 @@ export async function getVehicles(customerId) {
 }
 
 /**
+ * Lista los vehículos asociados exclusivamente a un cliente específico.
+ */
+export async function getVehiclesByCustomer(customerId) {
+  if (!customerId) {
+    throw new Error('El identificador del cliente es obligatorio para consultar sus vehículos.')
+  }
+  const { data } = await api.get(`/vehicles/customer/${customerId}`)
+  return data
+}
+
+/**
  * Registra un nuevo vehículo asociado a un cliente.
  */
 export async function createVehicle(payload) {
