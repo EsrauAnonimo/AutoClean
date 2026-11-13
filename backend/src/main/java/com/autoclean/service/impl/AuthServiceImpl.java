@@ -1,5 +1,6 @@
 package com.autoclean.service.impl;
 
+import com.autoclean.dto.auth.CompleteProfileRequest;
 import com.autoclean.dto.auth.LoginRequest;
 import com.autoclean.dto.auth.LoginResponse;
 import com.autoclean.dto.auth.RegisterRequest;
@@ -83,6 +84,29 @@ public class AuthServiceImpl implements AuthService {
         String encodedPassword = passwordEncoder.encode(request.password());
         User savedUser = userRepository.save(new User(normalizedEmail, encodedPassword, Role.CLIENTE, linkedCustomer));
         return toLoginResponse(savedUser);
+    }
+
+    @Override
+    @Transactional
+    public LoginResponse completeProfile(String email, CompleteProfileRequest request) {
+        if (!isNotBlank(email) || request == null) {
+            throw new IllegalArgumentException("El correo y los datos de perfil son obligatorios");
+        }
+        String normalizedEmail = email.trim().toLowerCase();
+        User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado: " + normalizedEmail));
+
+        String cleanName = request.name().trim();
+        String cleanPhone = request.phone().trim();
+        Customer customer = user.getCustomer();
+        if (customer == null) {
+            customer = customerRepository.findByEmailIgnoreCase(normalizedEmail)
+                    .orElseGet(() -> customerRepository.save(new Customer(cleanName, cleanPhone, normalizedEmail)));
+            user.setCustomer(customer);
+            user = userRepository.save(user);
+        }
+
+        return toLoginResponse(user);
     }
 
     private Customer resolveCustomerForRegistration(RegisterRequest request, String normalizedEmail) {
