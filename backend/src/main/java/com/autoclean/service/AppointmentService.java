@@ -1,0 +1,78 @@
+package com.autoclean.service;
+
+import com.autoclean.dto.appointment.AppointmentRequestDto;
+import com.autoclean.dto.appointment.AppointmentResponseDto;
+import com.autoclean.model.AppointmentStatus;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Contrato de servicio para la gestión de citas automotrices y su ciclo de vida.
+ */
+public interface AppointmentService {
+
+    /**
+     * Registra una nueva cita. Si no se indica estado, inicia en {@code PENDING}.
+     *
+     * @param request datos de creación de la cita
+     * @return cita creada
+     */
+    AppointmentResponseDto create(AppointmentRequestDto request);
+
+    /**
+     * Actualiza los datos de una cita existente validando sus referencias y máquina de estados.
+     *
+     * @param id identificador único de la cita
+     * @param request nuevos datos de la cita
+     * @return cita actualizada
+     */
+    AppointmentResponseDto update(UUID id, AppointmentRequestDto request);
+
+    /**
+     * Elimina una cita existente por su identificador.
+     *
+     * @param id identificador único de la cita
+     */
+    void delete(UUID id);
+
+    /**
+     * Busca una cita por su identificador único.
+     *
+     * @param id identificador único de la cita
+     * @return cita encontrada
+     */
+    AppointmentResponseDto findById(UUID id);
+
+    /**
+     * Lista todas las citas registradas.
+     *
+     * @return lista de citas
+     */
+    List<AppointmentResponseDto> findAll();
+
+    /**
+     * Lista las citas asociadas a un cliente específico.
+     *
+     * @param customerId identificador del cliente
+     * @return citas del cliente
+     */
+    List<AppointmentResponseDto> findByCustomerId(UUID customerId);
+
+    /**
+     * Lista las citas filtradas por estado.
+     *
+     * @param status estado de la cita
+     * @return citas en ese estado
+     */
+    List<AppointmentResponseDto> findByStatus(AppointmentStatus status);
+
+    /**
+     * Transiciona el estado de una cita aplicando estrictamente la máquina de estados.
+     *
+     * @param appointmentId identificador de la cita
+     * @param newStatus estado destino solicitado
+     * @return cita actualizada con el nuevo estado
+     */
+    AppointmentResponseDto updateStatus(UUID appointmentId, AppointmentStatus newStatus);
+}
+
