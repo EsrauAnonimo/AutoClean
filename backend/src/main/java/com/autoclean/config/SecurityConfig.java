@@ -33,6 +33,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Configuration
 public class SecurityConfig {
 
+    private static final String[] STAFF_ROLES = {"ADMIN", "OPERATOR", "MANAGER"};
+
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     /**
@@ -79,6 +81,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/complete-profile").authenticated()
                         .requestMatchers("/api/auth/**", "/error", "/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
+                        // Endpoints exclusivos de operación administrativa y analítica
+                        .requestMatchers("/api/reports/**", "/api/costing/**", "/api/supplies/**").hasAnyRole(STAFF_ROLES)
+                        .requestMatchers(HttpMethod.POST, "/api/customers/**", "/api/service-types/**", "/api/employees/**").hasAnyRole(STAFF_ROLES)
+                        .requestMatchers(HttpMethod.PUT, "/api/customers/**", "/api/service-types/**", "/api/employees/**", "/api/appointments/**").hasAnyRole(STAFF_ROLES)
+                        .requestMatchers(HttpMethod.DELETE, "/api/customers/**", "/api/service-types/**", "/api/employees/**", "/api/appointments/**").hasAnyRole(STAFF_ROLES)
+                        .requestMatchers(HttpMethod.PATCH, "/api/appointments/*/status", "/api/appointments/*/vehicle-status").hasAnyRole(STAFF_ROLES)
                         .anyRequest().authenticated())
                 // Mantiene 403 en llamadas /api/** sin token en vez de redirigir al login OAuth2
                 .exceptionHandling(ex -> ex.defaultAuthenticationEntryPointFor(

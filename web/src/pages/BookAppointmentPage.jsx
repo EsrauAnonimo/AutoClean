@@ -6,7 +6,7 @@ import { MainLayout } from '../components/MainLayout'
 import { PlateInput } from '../components/PlateInput'
 import { useAuth } from '../context/AuthContext'
 import { getApiErrorMessage } from '../services/api'
-import { createAppointment } from '../services/appointmentService'
+import { createAppointment, getOccupiedAppointmentSlots } from '../services/appointmentService'
 import { getEmployees, getServiceTypes } from '../services/catalogService'
 import { getVehicleByPlate } from '../services/vehicleService'
 import { showToast } from '../utils/toast'
@@ -103,6 +103,8 @@ export function BookAppointmentPage() {
   const [selectedDate, setSelectedDate] = useState(todayIso)
   const [selectedTime, setSelectedTime] = useState('')
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('')
+  const [occupiedSlots, setOccupiedSlots] = useState([])
+  const [loadingAvailability, setLoadingAvailability] = useState(false)
 
   const [stepError, setStepError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -176,13 +178,77 @@ export function BookAppointmentPage() {
     [employees, selectedEmployeeId],
   )
 
-  const isSlotDisabled = (slot) => {
-    if (!slot.available) return true
-    if (!selectedDate) return false
+  useEffect(() => {
+    if (!customerId || !selectedDate) {
+      setOccupiedSlots([])
+      return undefined
+    }
+    let active = true
+    setLoadingAvailability(true)
+    getOccupiedAppointmentSlots(selectedDate, selectedEmployeeId || undefined)
+      .then((list) => {
+        if (active) {
+          setOccupiedSlots(Array.isArray(list) ? list : [])
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setOccupiedSlots([])
+        }
+      })
+      .finally(() => {
+        if (active) setLoadingAvailability(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [customerId, selectedDate, selectedEmployeeId])
+
+  const isSlotOccupied = useCallback(
+    (slotTime) => {
+      if (!selectedDate || !occupiedSlots.length) return false
+      const candidateStart = new Date(`${selectedDate}T${slotTime}:00`).getTime()
+      if (Number.isNaN(candidateStart)) return false
+      const durationMs = Math.max(Number(selectedService?.durationMin) || 60, 1) * 60_000
+      const candidateEnd = candidateStart + durationMs
+
+      const matchingSlots = occupiedSlots.filter((item) => {
+        const start = new Date(item.startTime).getTime()
+        const end = new Date(item.endTime).getTime()
+        return !Number.isNaN(start) && !Number.isNaN(end) && candidateStart < end && start < candidateEnd
+      })
+
+      if (!matchingSlots.length) return false
+      if (selectedEmployeeId) {
+        return matchingSlots.some((item) => item.employeeId === selectedEmployeeId)
+      }
+      if (employees.length > 0) {
+        const busyEmployeeIds = new Set(matchingSlots.map((item) => item.employeeId).filter(Boolean))
+        return employees.every((emp) => busyEmployeeIds.has(emp.id))
+      }
+      return false
+    },
+    [employees, occupiedSlots, selectedDate, selectedEmployeeId, selectedService?.durationMin],
+  )
+
+  const getSlotStatus = (slot) => {
+    if (!slot.available) {
+      return { disabled: true, subtitle: slot.reason || slot.period }
+    }
+    if (!selectedDate) {
+      return { disabled: false, subtitle: slot.period }
+    }
     const candidate = new Date(`${selectedDate}T${slot.time}:00`)
-    if (Number.isNaN(candidate.getTime())) return true
-    if (candidate.getTime() <= renderTimestamp) return true
-    return !isWithinOperatingHours(candidate)
+    if (Number.isNaN(candidate.getTime()) || candidate.getTime() <= renderTimestamp) {
+      return { disabled: true, subtitle: 'No disponible' }
+    }
+    if (!isWithinOperatingHours(candidate)) {
+      return { disabled: true, subtitle: 'Fuera de horario' }
+    }
+    if (isSlotOccupied(slot.time)) {
+      return { disabled: true, subtitle: 'Ocupado' }
+    }
+    return { disabled: false, subtitle: slot.period }
   }
 
   const handleNextStep = async () => {
@@ -525,10 +591,15 @@ export function BookAppointmentPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-sm font-medium text-[#1E1B4B]">Franja horaria</p>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-[#1E1B4B]">Franja horaria</p>
+                      {loadingAvailability && (
+                        <span className="text-xs text-[#5B5F7A]">Verificando disponibilidad...</span>
+                      )}
+                    </div>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {TIME_SLOTS.map((slot) => {
-                        const disabled = isSlotDisabled(slot)
+                        const { disabled, subtitle } = getSlotStatus(slot)
                         const active = selectedTime === slot.time && !disabled
                         return (
                           <button
@@ -552,10 +623,10 @@ export function BookAppointmentPage() {
                             <span
                               className={[
                                 'block text-[10px]',
-                                active ? 'text-indigo-100' : 'text-[#5B5F7A]',
+                                active ? 'text-indigo-100' : subtitle === 'Ocupado' ? 'font-semibold text-[#B91C1C]' : 'text-[#5B5F7A]',
                               ].join(' ')}
                             >
-                              {slot.reason || slot.period}
+                              {subtitle}
                             </span>
                           </button>
                         )
@@ -575,6 +646,23 @@ export function BookAppointmentPage() {
                             onClick={() => {
                               setSelectedEmployeeId(employee.id)
                               setStepError('')
+                              if (selectedTime) {
+                                const candidateStart = new Date(`${selectedDate}T${selectedTime}:00`).getTime()
+                                const durationMs = Math.max(Number(selectedService?.durationMin) || 60, 1) * 60_000
+                                const candidateEnd = candidateStart + durationMs
+                                const hasConflict = occupiedSlots.some((item) => {
+                                  if (item.employeeId !== employee.id) return false
+                                  const start = new Date(item.startTime).getTime()
+                                  const end = new Date(item.endTime).getTime()
+                                  return candidateStart < end && start < candidateEnd
+                                })
+                                if (hasConflict) {
+                                  setSelectedTime('')
+                                  setStepError(
+                                    `${employee.name} ya tiene ocupado ese horario. Elige otra franja disponible.`,
+                                  )
+                                }
+                              }
                             }}
                             className={[
                               'flex items-center gap-3 rounded-xl border p-3 text-left transition',

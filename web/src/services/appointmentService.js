@@ -86,6 +86,18 @@ export async function getCustomers() {
 }
 
 /**
+ * Consulta franjas horarias ya ocupadas alrededor de una fecha para evitar cruces.
+ */
+export async function getOccupiedAppointmentSlots(date, employeeId) {
+  const params = { date }
+  if (employeeId) {
+    params.employeeId = employeeId
+  }
+  const { data } = await api.get('/appointments/availability', { params })
+  return data
+}
+
+/**
  * Consulta vehículos registrados, opcionalmente filtrados por cliente.
  */
 export async function getVehicles(customerId) {

@@ -2,6 +2,7 @@ package com.autoclean.service.impl;
 
 import com.autoclean.dto.appointment.AppointmentRequestDto;
 import com.autoclean.dto.appointment.AppointmentResponseDto;
+import com.autoclean.dto.appointment.OccupiedSlotDto;
 import com.autoclean.exception.ResourceNotFoundException;
 import com.autoclean.model.Appointment;
 import com.autoclean.model.AppointmentStatus;
@@ -16,8 +17,10 @@ import com.autoclean.repository.EmployeeRepository;
 import com.autoclean.repository.ServiceTypeRepository;
 import com.autoclean.repository.VehicleRepository;
 import com.autoclean.service.AppointmentService;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +40,10 @@ public class AppointmentServiceImpl implements AppointmentService {
     private static final LocalTime MORNING_END = LocalTime.of(12, 0);
     private static final LocalTime AFTERNOON_START = LocalTime.of(14, 30);
     private static final LocalTime AFTERNOON_END = LocalTime.of(21, 0);
+    private static final Set<AppointmentStatus> ACTIVE_STATUSES = EnumSet.of(
+            AppointmentStatus.PENDING,
+            AppointmentStatus.IN_PROGRESS
+    );
 
     // Tabla de transiciones permitidas (OCP: facilita extender reglas sin reescribir condicionales)
     private static final Map<AppointmentStatus, Set<AppointmentStatus>> ALLOWED_TRANSITIONS = Map.of(
@@ -92,6 +99,16 @@ public class AppointmentServiceImpl implements AppointmentService {
                 ? request.status()
                 : AppointmentStatus.PENDING;
 
+        if (ACTIVE_STATUSES.contains(initialStatus)) {
+            validateNoScheduleConflict(
+                    null,
+                    refs.employee().getId(),
+                    refs.vehicle().getId(),
+                    request.dateTime(),
+                    resolveDurationMinutes(refs.serviceType())
+            );
+        }
+
         Appointment appointment = new Appointment(
                 refs.customer(),
                 refs.vehicle(),
@@ -117,6 +134,17 @@ public class AppointmentServiceImpl implements AppointmentService {
         if (request.status() != null && request.status() != existing.getStatus()) {
             validateTransition(existing.getStatus(), request.status());
             existing.setStatus(request.status());
+        }
+
+        AppointmentStatus targetStatus = request.status() != null ? request.status() : existing.getStatus();
+        if (ACTIVE_STATUSES.contains(targetStatus)) {
+            validateNoScheduleConflict(
+                    id,
+                    refs.employee().getId(),
+                    refs.vehicle().getId(),
+                    request.dateTime(),
+                    resolveDurationMinutes(refs.serviceType())
+            );
         }
 
         existing.setCustomer(refs.customer());
@@ -236,6 +264,74 @@ public class AppointmentServiceImpl implements AppointmentService {
         Appointment appointment = findExistingForMutation(appointmentId);
         appointment.setVehicleStatus(vehicleStatus);
         return AppointmentResponseDto.from(appointmentRepository.save(appointment));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OccupiedSlotDto> findOccupiedSlots(LocalDate date, UUID employeeId) {
+        if (date == null) {
+            throw new IllegalArgumentException("La fecha de consulta no puede ser nula");
+        }
+
+        // Ventana amplia (+/- 1 día en UTC) para evitar cortes por huso horario entre cliente y servidor
+        OffsetDateTime windowStart = date.minusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC);
+        OffsetDateTime windowEnd = date.plusDays(2).atStartOfDay().atOffset(ZoneOffset.UTC);
+
+        return appointmentRepository.findByStatusIn(ACTIVE_STATUSES).stream()
+                .filter(existing -> existing.getDateTime() != null)
+                .filter(existing -> !existing.getDateTime().isBefore(windowStart)
+                        && existing.getDateTime().isBefore(windowEnd))
+                .filter(existing -> employeeId == null
+                        || (existing.getEmployee() != null && employeeId.equals(existing.getEmployee().getId())))
+                .map(existing -> new OccupiedSlotDto(
+                        existing.getDateTime(),
+                        existing.getDateTime().plusMinutes(resolveDurationMinutes(existing.getServiceType())),
+                        existing.getEmployee() != null ? existing.getEmployee().getId() : null
+                ))
+                .toList();
+    }
+
+    private void validateNoScheduleConflict(
+            UUID excludeAppointmentId,
+            UUID employeeId,
+            UUID vehicleId,
+            OffsetDateTime startTime,
+            int durationMinutes) {
+        if (startTime == null) {
+            return;
+        }
+        OffsetDateTime endTime = startTime.plusMinutes(durationMinutes);
+
+        for (Appointment existing : appointmentRepository.findByStatusIn(ACTIVE_STATUSES)) {
+            if (excludeAppointmentId != null && excludeAppointmentId.equals(existing.getId())) {
+                continue;
+            }
+            OffsetDateTime existingStart = existing.getDateTime();
+            if (existingStart == null) {
+                continue;
+            }
+            OffsetDateTime existingEnd = existingStart.plusMinutes(resolveDurationMinutes(existing.getServiceType()));
+            boolean overlaps = startTime.isBefore(existingEnd) && existingStart.isBefore(endTime);
+            if (!overlaps) {
+                continue;
+            }
+
+            if (employeeId != null && existing.getEmployee() != null && employeeId.equals(existing.getEmployee().getId())) {
+                throw new IllegalStateException(
+                        "El especialista seleccionado ya tiene una cita programada en ese horario");
+            }
+            if (vehicleId != null && existing.getVehicle() != null && vehicleId.equals(existing.getVehicle().getId())) {
+                throw new IllegalStateException(
+                        "Este vehículo ya tiene otra cita programada en ese horario");
+            }
+        }
+    }
+
+    private int resolveDurationMinutes(ServiceType serviceType) {
+        if (serviceType == null || serviceType.getDurationMin() == null || serviceType.getDurationMin() <= 0) {
+            return 60;
+        }
+        return serviceType.getDurationMin();
     }
 
     private void validateOperatingHours(OffsetDateTime dateTime) {
