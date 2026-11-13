@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import { getApiErrorMessage } from '../services/api'
 import { createAppointment, getOccupiedAppointmentSlots } from '../services/appointmentService'
 import { getEmployees, getServiceTypes } from '../services/catalogService'
-import { getVehicleByPlate } from '../services/vehicleService'
+import { getVehicleByPlate, getVehiclesByCustomer } from '../services/vehicleService'
 import { showToast } from '../utils/toast'
 
 const STEPS = [
@@ -97,6 +97,7 @@ export function BookAppointmentPage() {
 
   const [serviceTypes, setServiceTypes] = useState([])
   const [employees, setEmployees] = useState([])
+  const [myVehicles, setMyVehicles] = useState([])
   const [catalogLoading, setCatalogLoading] = useState(Boolean(customerId))
 
   const [selectedServiceId, setSelectedServiceId] = useState('')
@@ -110,63 +111,69 @@ export function BookAppointmentPage() {
   const [submitting, setSubmitting] = useState(false)
   const [createdAppointment, setCreatedAppointment] = useState(null)
 
-  const lookupVehicleByPlate = useCallback(async (rawPlate) => {
-    const cleaned = rawPlate.trim().toUpperCase()
-    if (!cleaned) {
-      setPlateError('Ingresa la placa de tu vehículo para continuar.')
-      return null
-    }
-    setSearchingVehicle(true)
-    setPlateError('')
-    try {
-      const found = await getVehicleByPlate(cleaned)
-      setResolvedVehicle(found)
-      return found
-    } catch (error) {
-      setResolvedVehicle(null)
-      setPlateError(
-        getApiErrorMessage(
-          error,
-          `No encontramos un vehículo registrado con la placa ${cleaned}.`,
-        ),
-      )
-      return null
-    } finally {
-      setSearchingVehicle(false)
-    }
-  }, [])
+  const lookupVehicleByPlate = useCallback(
+    async (rawPlate) => {
+      const cleaned = rawPlate.trim().toUpperCase()
+      if (!cleaned) {
+        setPlateError('Ingresa la placa de tu vehículo para continuar.')
+        return null
+      }
+      setSearchingVehicle(true)
+      setPlateError('')
+      try {
+        const found = await getVehicleByPlate(cleaned)
+        if (found?.customerId && customerId && found.customerId !== customerId) {
+          setResolvedVehicle(null)
+          setPlateError('Esta placa pertenece a otro cliente. Registra tu vehículo en Mis Vehículos.')
+          return null
+        }
+        setResolvedVehicle(found)
+        return found
+      } catch (error) {
+        setResolvedVehicle(null)
+        setPlateError(
+          getApiErrorMessage(
+            error,
+            `No encontramos un vehículo registrado con la placa ${cleaned}.`,
+          ),
+        )
+        return null
+      } finally {
+        setSearchingVehicle(false)
+      }
+    },
+    [customerId],
+  )
 
-  useEffect(() => {
+  const loadCatalogData = useCallback(async () => {
     if (!customerId) {
       setCatalogLoading(false)
-      return undefined
+      return
     }
-    let active = true
     setCatalogLoading(true)
+    setStepError('')
+    try {
+      const [serviceList, employeeList, vehicleList] = await Promise.all([
+        getServiceTypes(),
+        getEmployees(),
+        getVehiclesByCustomer(customerId).catch(() => []),
+      ])
+      setServiceTypes(Array.isArray(serviceList) ? serviceList : [])
+      setEmployees(Array.isArray(employeeList) ? employeeList : [])
+      setMyVehicles(Array.isArray(vehicleList) ? vehicleList : [])
+    } catch (error) {
+      setStepError(getApiErrorMessage(error, 'No fue posible cargar servicios ni especialistas.'))
+    } finally {
+      setCatalogLoading(false)
+    }
+  }, [customerId])
 
-    Promise.all([getServiceTypes(), getEmployees()])
-      .then(([serviceList, employeeList]) => {
-        if (!active) return
-        setServiceTypes(Array.isArray(serviceList) ? serviceList : [])
-        setEmployees(Array.isArray(employeeList) ? employeeList : [])
-      })
-      .catch((error) => {
-        if (active) {
-          setStepError(getApiErrorMessage(error, 'No fue posible cargar servicios ni especialistas.'))
-        }
-      })
-      .finally(() => {
-        if (active) setCatalogLoading(false)
-      })
-
-    if (initialPlate) {
+  useEffect(() => {
+    loadCatalogData()
+    if (customerId && initialPlate) {
       lookupVehicleByPlate(initialPlate)
     }
-
-    return () => {
-      active = false
-    }
-  }, [customerId, initialPlate, lookupVehicleByPlate])
+  }, [customerId, initialPlate, loadCatalogData, lookupVehicleByPlate])
 
   const selectedService = useMemo(
     () => serviceTypes.find((item) => item.id === selectedServiceId) || null,
@@ -477,6 +484,40 @@ export function BookAppointmentPage() {
                     </Button>
                   </div>
 
+                  {myVehicles.length > 0 && (
+                    <div className="space-y-2 rounded-xl border border-[#E4E6F2] bg-[#F5F6FB]/70 p-3.5">
+                      <p className="text-[11px] font-semibold tracking-wider text-[#5B5F7A] uppercase">
+                        Tus vehículos registrados
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {myVehicles.map((vehicle) => {
+                          const isCurrent = resolvedVehicle?.id === vehicle.id
+                          return (
+                            <button
+                              key={vehicle.id}
+                              type="button"
+                              onClick={() => {
+                                setPlate(vehicle.plate)
+                                setResolvedVehicle(vehicle)
+                                setPlateError('')
+                              }}
+                              className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                                isCurrent
+                                  ? 'border-[#4F46E5] bg-[#4F46E5] text-white'
+                                  : 'border-[#E4E6F2] bg-white text-[#1E1B4B] hover:border-[#4F46E5]'
+                              }`}
+                            >
+                              <span className="font-mono font-bold">{vehicle.plate}</span>
+                              <span className={isCurrent ? 'text-indigo-100' : 'text-[#5B5F7A]'}>
+                                {vehicle.brand} {vehicle.model}
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {resolvedVehicle && (
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#15803D]/25 bg-[#DCFCE7]/50 p-4">
                       <div>
@@ -517,6 +558,20 @@ export function BookAppointmentPage() {
                       {[1, 2, 3, 4].map((skeleton) => (
                         <div key={skeleton} className="h-28 animate-pulse rounded-xl bg-[#F5F6FB]" />
                       ))}
+                    </div>
+                  ) : serviceTypes.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-[#E4E6F2] bg-[#F5F6FB]/70 p-6 text-center">
+                      <p className="text-sm font-semibold text-[#1E1B4B]">
+                        No hay servicios disponibles en el catálogo todavía
+                      </p>
+                      <p className="mt-1 text-xs text-[#5B5F7A]">
+                        Un administrador debe registrar los tipos de servicio en el panel o aplicar las migraciones iniciales.
+                      </p>
+                      <div className="mt-4">
+                        <Button type="button" variant="secondary" onClick={loadCatalogData}>
+                          Reintentar carga
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -636,7 +691,22 @@ export function BookAppointmentPage() {
 
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-[#1E1B4B]">Especialista</p>
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    {employees.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-[#E4E6F2] bg-[#F5F6FB]/70 p-5 text-center">
+                        <p className="text-sm font-semibold text-[#1E1B4B]">
+                          No hay especialistas registrados todavía
+                        </p>
+                        <p className="mt-1 text-xs text-[#5B5F7A]">
+                          Pide al administrador registrar al menos un empleado operativo para poder asignar tu cita.
+                        </p>
+                        <div className="mt-3">
+                          <Button type="button" variant="secondary" onClick={loadCatalogData}>
+                            Reintentar carga
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid gap-2 sm:grid-cols-2">
                       {employees.map((employee) => {
                         const selected = selectedEmployeeId === employee.id
                         return (
@@ -685,7 +755,8 @@ export function BookAppointmentPage() {
                           </button>
                         )
                       })}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
