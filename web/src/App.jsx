@@ -26,6 +26,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/oauth2/redirect" element={<OAuth2RedirectPage />} />
 
           {/* Rutas del panel administrativo/operativo */}
           <Route

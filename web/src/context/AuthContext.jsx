@@ -17,6 +17,22 @@ function readStoredUser() {
   }
 }
 
+function parseJwtPayload(jwtToken) {
+  const parts = jwtToken?.split('.')
+  if (!parts || parts.length !== 3) {
+    throw new Error('Token JWT inválido.')
+  }
+  const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=')
+  const json = decodeURIComponent(
+    atob(padded)
+      .split('')
+      .map((char) => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`)
+      .join(''),
+  )
+  return JSON.parse(json)
+}
+
 /**
  * Proveedor global de estado de autenticación JWT persistido en localStorage.
  */
@@ -64,6 +80,28 @@ export function AuthProvider({ children }) {
     [persistSession],
   )
 
+  const loginWithToken = useCallback(
+    (rawToken) => {
+      const claims = parseJwtPayload(rawToken)
+      if (!claims?.sub || !claims?.role) {
+        throw new Error('El token recibido no contiene correo ni rol válidos.')
+      }
+      if (claims.exp && claims.exp * 1000 <= Date.now()) {
+        throw new Error('El token recibido ya expiró.')
+      }
+
+      const sessionData = {
+        token: rawToken,
+        email: claims.sub,
+        role: claims.role,
+        customerId: claims.customerId ?? null,
+      }
+      persistSession(sessionData)
+      return sessionData
+    },
+    [persistSession],
+  )
+
   const logout = useCallback(() => {
     persistSession(null)
   }, [persistSession])
@@ -85,9 +123,10 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(token),
       login,
       register,
+      loginWithToken,
       logout,
     }),
-    [token, user, login, register, logout],
+    [token, user, login, register, loginWithToken, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
