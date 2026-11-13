@@ -47,6 +47,12 @@
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
 
+        <!-- Autenticación federada OAuth2 Client (Google Login) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-client</artifactId>
+        </dependency>
+
         <!-- Driver JDBC para PostgreSQL (Supabase) -->
         <dependency>
             <groupId>org.postgresql</groupId>
