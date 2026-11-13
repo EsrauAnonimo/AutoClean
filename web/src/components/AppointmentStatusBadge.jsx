@@ -1,24 +1,24 @@
 const STATUS_STYLES = {
   PENDING: {
     label: 'Pendiente',
-    className: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200',
+    className: 'bg-[#FEF3C7] text-[#B45309] ring-1 ring-[#F59E0B]/30',
   },
   IN_PROGRESS: {
     label: 'En proceso',
-    className: 'bg-sky-50 text-sky-800 ring-1 ring-sky-200',
+    className: 'bg-[#EDE9FE] text-[#6D28D9] ring-1 ring-[#8B5CF6]/30',
   },
   FINISHED: {
     label: 'Finalizada',
-    className: 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200',
+    className: 'bg-[#DCFCE7] text-[#15803D] ring-1 ring-[#22C55E]/30',
   },
   CANCELLED: {
     label: 'Cancelada',
-    className: 'bg-rose-50 text-rose-800 ring-1 ring-rose-200',
+    className: 'bg-[#FEE2E2] text-[#B91C1C] ring-1 ring-[#EF4444]/30',
   },
 }
 
 /**
- * Etiqueta visual semántica para representar el estado de una cita en su máquina de estados.
+ * Badge semántico para el estado de una cita en el sistema de diseño AutoClean.
  */
 export function AppointmentStatusBadge({ status }) {
   const config = STATUS_STYLES[status] || {

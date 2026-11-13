@@ -117,13 +117,13 @@ export function ReportsPage() {
     <MainLayout>
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Reportes Gerenciales</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Consulta los servicios atendidos y la comparación de ingresos vs costos por rango de fechas.
+          <h1 className="text-[28px] font-bold tracking-tight text-[#1E1B4B]">Reportes</h1>
+          <p className="mt-1 text-sm text-[#5B5F7A]">
+            Servicios atendidos y comparativa de ingresos vs costos por rango de fechas.
           </p>
         </div>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="rounded-2xl border border-[#E4E6F2] bg-white p-6 shadow-card">
           <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-3">
             <Input
               id="reportFrom"
@@ -152,40 +152,40 @@ export function ReportsPage() {
         {errorMessage && (
           <div
             role="alert"
-            className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+            className="rounded-xl border border-[#B91C1C]/20 bg-[#FEE2E2] px-4 py-3 text-sm font-medium text-[#B91C1C]"
           >
             {errorMessage}
           </div>
         )}
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-6 py-4">
+          <section className="overflow-hidden rounded-2xl border border-[#E4E6F2] bg-white shadow-card">
+            <div className="border-b border-[#E4E6F2] px-6 py-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-base font-semibold text-slate-900">
+                <h2 className="text-[18px] font-semibold text-[#1E1B4B]">
                   {servicesReport?.title || 'Servicios por periodo'}
-                </h3>
-                <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-semibold text-sky-700">
+                </h2>
+                <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-[#4F46E5]">
                   {servicesReport?.rows?.length ?? 0} registros
                 </span>
               </div>
               {servicesReport?.generatedAt && (
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-[#5B5F7A]">
                   Generado: {formatDateTime(servicesReport.generatedAt)}
                 </p>
               )}
             </div>
 
             {loading ? (
-              <div className="p-8 text-center text-sm text-slate-500">Cargando servicios por periodo...</div>
+              <div className="p-8 text-center text-sm text-[#5B5F7A]">Cargando servicios por periodo...</div>
             ) : !servicesReport?.rows?.length ? (
-              <div className="p-8 text-center text-sm text-slate-500">
+              <div className="p-8 text-center text-sm text-[#5B5F7A]">
                 {servicesReport?.title || 'Sin datos en el periodo'}
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-                  <thead className="bg-slate-50 text-xs font-semibold tracking-wider text-slate-600 uppercase">
+                <table className="min-w-full divide-y divide-[#E4E6F2] text-left text-sm">
+                  <thead className="bg-[#F5F6FB] text-xs font-semibold tracking-wider text-[#5B5F7A] uppercase">
                     <tr>
                       <th className="px-4 py-3">Cliente</th>
                       <th className="px-4 py-3">Servicio</th>
@@ -193,17 +193,17 @@ export function ReportsPage() {
                       <th className="px-4 py-3">Fecha</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
+                  <tbody className="divide-y divide-[#E4E6F2] bg-white">
                     {servicesReport.rows.map((row, index) => (
-                      <tr key={row[0] || index} className="hover:bg-slate-50/80">
-                        <td className="px-4 py-3 font-medium text-slate-900">{row[1] || '—'}</td>
-                        <td className="px-4 py-3 text-slate-700">{row[2] || '—'}</td>
+                      <tr key={row[0] || index} className="hover:bg-[#F5F6FB]/60">
+                        <td className="px-4 py-3 font-medium text-[#1E1B4B]">{row[1] || '—'}</td>
+                        <td className="px-4 py-3 text-[#5B5F7A]">{row[2] || '—'}</td>
                         <td className="whitespace-nowrap px-4 py-3">
-                          <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                          <span className="inline-flex rounded-full bg-[#F5F6FB] px-2.5 py-0.5 text-xs font-semibold text-[#1E1B4B]">
                             {row[3] || '—'}
                           </span>
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-slate-600">
+                        <td className="whitespace-nowrap px-4 py-3 text-[#5B5F7A]">
                           {formatDateTime(row[4])}
                         </td>
                       </tr>
@@ -214,45 +214,49 @@ export function ReportsPage() {
             )}
           </section>
 
-          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-6 py-4">
+          <section className="overflow-hidden rounded-2xl border border-[#E4E6F2] bg-white shadow-card">
+            <div className="border-b border-[#E4E6F2] px-6 py-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-base font-semibold text-slate-900">
+                <h2 className="text-[18px] font-semibold text-[#1E1B4B]">
                   {revenueReport?.title || 'Ingresos vs Costos'}
-                </h3>
-                <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                </h2>
+                <span className="rounded-full bg-[#DCFCE7] px-2.5 py-0.5 text-xs font-semibold tabular-nums text-[#15803D]">
                   {revenueReport?.rows?.length ?? 0} estimaciones
                 </span>
               </div>
               {revenueReport?.generatedAt && (
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-[#5B5F7A]">
                   Generado: {formatDateTime(revenueReport.generatedAt)}
                 </p>
               )}
             </div>
 
             {loading ? (
-              <div className="p-8 text-center text-sm text-slate-500">Cargando ingresos vs costos...</div>
+              <div className="p-8 text-center text-sm text-[#5B5F7A]">Cargando ingresos vs costos...</div>
             ) : !revenueReport?.rows?.length ? (
-              <div className="p-8 text-center text-sm text-slate-500">
+              <div className="p-8 text-center text-sm text-[#5B5F7A]">
                 {revenueReport?.title || 'Sin datos en el periodo'}
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-3 gap-2 border-b border-slate-200 bg-slate-50/70 px-6 py-3 text-xs">
+                <div className="grid grid-cols-3 gap-2 border-b border-[#E4E6F2] bg-[#F5F6FB]/70 px-6 py-3 text-xs">
                   <div>
-                    <span className="block text-slate-500">Ingresos</span>
-                    <span className="font-semibold text-slate-900">{formatMoney(revenueTotals.price)}</span>
+                    <span className="block text-[#5B5F7A]">Ingresos</span>
+                    <span className="font-bold tabular-nums text-[#1E1B4B]">
+                      {formatMoney(revenueTotals.price)}
+                    </span>
                   </div>
                   <div>
-                    <span className="block text-slate-500">Costos</span>
-                    <span className="font-semibold text-slate-900">{formatMoney(revenueTotals.cost)}</span>
+                    <span className="block text-[#5B5F7A]">Costos</span>
+                    <span className="font-bold tabular-nums text-[#1E1B4B]">
+                      {formatMoney(revenueTotals.cost)}
+                    </span>
                   </div>
                   <div>
-                    <span className="block text-slate-500">Diferencia</span>
+                    <span className="block text-[#5B5F7A]">Diferencia</span>
                     <span
-                      className={`font-semibold ${
-                        revenueTotals.difference >= 0 ? 'text-emerald-700' : 'text-rose-700'
+                      className={`font-bold tabular-nums ${
+                        revenueTotals.difference >= 0 ? 'text-[#15803D]' : 'text-[#B91C1C]'
                       }`}
                     >
                       {formatMoney(revenueTotals.difference)}
@@ -261,8 +265,8 @@ export function ReportsPage() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-                    <thead className="bg-slate-50 text-xs font-semibold tracking-wider text-slate-600 uppercase">
+                  <table className="min-w-full divide-y divide-[#E4E6F2] text-left text-sm">
+                    <thead className="bg-[#F5F6FB] text-xs font-semibold tracking-wider text-[#5B5F7A] uppercase">
                       <tr>
                         <th className="px-4 py-3">Servicio</th>
                         <th className="px-4 py-3">Ingreso</th>
@@ -270,21 +274,21 @@ export function ReportsPage() {
                         <th className="px-4 py-3">Diferencia</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 bg-white">
+                    <tbody className="divide-y divide-[#E4E6F2] bg-white">
                       {revenueReport.rows.map((row, index) => {
                         const diff = Number(row[3])
                         return (
-                          <tr key={`${row[0]}-${index}`} className="hover:bg-slate-50/80">
-                            <td className="px-4 py-3 font-medium text-slate-900">{row[0] || '—'}</td>
-                            <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+                          <tr key={`${row[0]}-${index}`} className="hover:bg-[#F5F6FB]/60">
+                            <td className="px-4 py-3 font-medium text-[#1E1B4B]">{row[0] || '—'}</td>
+                            <td className="whitespace-nowrap px-4 py-3 tabular-nums text-[#5B5F7A]">
                               {formatMoney(row[1])}
                             </td>
-                            <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+                            <td className="whitespace-nowrap px-4 py-3 tabular-nums text-[#5B5F7A]">
                               {formatMoney(row[2])}
                             </td>
                             <td
-                              className={`whitespace-nowrap px-4 py-3 font-semibold ${
-                                !Number.isNaN(diff) && diff < 0 ? 'text-rose-700' : 'text-emerald-700'
+                              className={`whitespace-nowrap px-4 py-3 font-semibold tabular-nums ${
+                                !Number.isNaN(diff) && diff < 0 ? 'text-[#B91C1C]' : 'text-[#15803D]'
                               }`}
                             >
                               {formatMoney(row[3])}

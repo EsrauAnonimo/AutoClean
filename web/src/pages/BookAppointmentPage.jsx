@@ -1,108 +1,146 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/Button'
 import { CompleteCustomerProfileCard } from '../components/CompleteCustomerProfileCard'
-import { Input } from '../components/Input'
 import { MainLayout } from '../components/MainLayout'
+import { PlateInput } from '../components/PlateInput'
 import { useAuth } from '../context/AuthContext'
 import { getApiErrorMessage } from '../services/api'
 import { createAppointment } from '../services/appointmentService'
 import { getEmployees, getServiceTypes } from '../services/catalogService'
 import { getVehicleByPlate } from '../services/vehicleService'
+import { showToast } from '../utils/toast'
 
-const INITIAL_FORM = {
-  plate: '',
-  serviceTypeId: '',
-  employeeId: '',
-  dateTime: '',
-}
+const STEPS = [
+  { id: 1, label: 'Placa' },
+  { id: 2, label: 'Servicio' },
+  { id: 3, label: 'Fecha y hora' },
+  { id: 4, label: 'Confirmar' },
+]
 
-const MORNING_START_MINUTES = 7 * 60
-const MORNING_END_MINUTES = 12 * 60
-const AFTERNOON_START_MINUTES = 14 * 60 + 30
-const AFTERNOON_END_MINUTES = 21 * 60
+const TIME_SLOTS = [
+  { time: '06:00', label: '6:00 a. m.', period: 'Cerrado', available: false, reason: 'Fuera de horario' },
+  { time: '07:00', label: '7:00 a. m.', period: 'Mañana', available: true },
+  { time: '08:00', label: '8:00 a. m.', period: 'Mañana', available: true },
+  { time: '09:00', label: '9:00 a. m.', period: 'Mañana', available: true },
+  { time: '10:00', label: '10:00 a. m.', period: 'Mañana', available: true },
+  { time: '11:00', label: '11:00 a. m.', period: 'Mañana', available: true },
+  { time: '12:00', label: '12:00 p. m.', period: 'Mañana', available: true },
+  { time: '12:30', label: '12:30 p. m.', period: 'Receso', available: false, reason: 'Horario cerrado' },
+  { time: '13:30', label: '1:30 p. m.', period: 'Receso', available: false, reason: 'Horario cerrado' },
+  { time: '14:30', label: '2:30 p. m.', period: 'Tarde', available: true },
+  { time: '15:30', label: '3:30 p. m.', period: 'Tarde', available: true },
+  { time: '16:30', label: '4:30 p. m.', period: 'Tarde', available: true },
+  { time: '17:30', label: '5:30 p. m.', period: 'Tarde', available: true },
+  { time: '18:30', label: '6:30 p. m.', period: 'Tarde', available: true },
+  { time: '19:30', label: '7:30 p. m.', period: 'Noche', available: true },
+  { time: '20:30', label: '8:30 p. m.', period: 'Noche', available: true },
+  { time: '21:00', label: '9:00 p. m.', period: 'Noche', available: true },
+  { time: '21:30', label: '9:30 p. m.', period: 'Cerrado', available: false, reason: 'Fuera de horario' },
+]
 
-function getLocalDateTimeMin() {
+function getTodayIsoDate() {
   const now = new Date()
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
-  return local.toISOString().slice(0, 16)
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
-function validateAppointmentDateTime(value) {
-  if (!value) {
-    return 'Selecciona la fecha y hora de tu cita.'
-  }
-
-  const parsedDate = new Date(value)
-  if (Number.isNaN(parsedDate.getTime())) {
-    return 'La fecha y hora seleccionadas no son válidas.'
-  }
-
-  if (parsedDate.getTime() < Date.now()) {
-    return 'No puedes agendar una cita en una fecha u hora pasada.'
-  }
-
-  const totalMinutes = parsedDate.getHours() * 60 + parsedDate.getMinutes()
-  const inMorningShift =
-    totalMinutes >= MORNING_START_MINUTES && totalMinutes <= MORNING_END_MINUTES
-  const inAfternoonShift =
-    totalMinutes >= AFTERNOON_START_MINUTES && totalMinutes <= AFTERNOON_END_MINUTES
-
-  if (!inMorningShift && !inAfternoonShift) {
-    return 'Horario fuera de atención. Solo atendemos de 7:00 a. m. a 12:00 p. m. y de 2:30 p. m. a 9:00 p. m.'
-  }
-
-  return ''
+function isWithinOperatingHours(dateObj) {
+  const mins = dateObj.getHours() * 60 + dateObj.getMinutes()
+  return (mins >= 420 && mins <= 720) || (mins >= 870 && mins <= 1260)
 }
 
-function formatPrice(value) {
-  const numeric = Number(value)
-  if (Number.isNaN(numeric)) return '$0'
+function formatCop(value) {
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
     currency: 'COP',
     maximumFractionDigits: 0,
-  }).format(numeric)
+  }).format(Number(value) || 0)
 }
 
-function formatAppointmentDateTime(value) {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
+function formatReadableDateTime(dateStr, timeStr) {
+  if (!dateStr || !timeStr) {
+    return '—'
+  }
+  const dateObj = new Date(`${dateStr}T${timeStr}:00`)
+  if (Number.isNaN(dateObj.getTime())) {
+    return `${dateStr} ${timeStr}`
+  }
   return new Intl.DateTimeFormat('es-CO', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date)
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(dateObj)
 }
 
 /**
- * Pantalla "Agendar Cita" del Portal de Clientes (/portal/agendar).
- * Busca el vehículo por placa, aplica franjas horarias estrictas e informa pago en efectivo.
+ * Portal del Cliente: Agendar cita en 4 pasos guiados (Placa -> Servicio -> Fecha/Hora -> Confirmar).
  */
 export function BookAppointmentPage() {
   const { user } = useAuth()
-  const customerId = user?.customerId ?? null
+  const customerId = user?.customerId
+  const [searchParams] = useSearchParams()
+  const initialPlate = (searchParams.get('plate') || '').toUpperCase()
+  const todayIso = useMemo(() => getTodayIsoDate(), [])
+  const [renderTimestamp] = useState(() => Date.now())
+
+  const [step, setStep] = useState(1)
+  const [plate, setPlate] = useState(initialPlate)
+  const [resolvedVehicle, setResolvedVehicle] = useState(null)
+  const [plateError, setPlateError] = useState('')
+  const [searchingVehicle, setSearchingVehicle] = useState(false)
 
   const [serviceTypes, setServiceTypes] = useState([])
   const [employees, setEmployees] = useState([])
+  const [catalogLoading, setCatalogLoading] = useState(Boolean(customerId))
 
-  const [form, setForm] = useState(INITIAL_FORM)
-  const [resolvedVehicle, setResolvedVehicle] = useState(null)
-  const [searchingVehicle, setSearchingVehicle] = useState(false)
-  const [plateError, setPlateError] = useState('')
-  const [timeError, setTimeError] = useState('')
+  const [selectedServiceId, setSelectedServiceId] = useState('')
+  const [selectedDate, setSelectedDate] = useState(todayIso)
+  const [selectedTime, setSelectedTime] = useState('')
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('')
 
-  const [minDateTime] = useState(() => getLocalDateTimeMin())
-  const [loading, setLoading] = useState(Boolean(customerId))
+  const [stepError, setStepError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [errorMessage, setErrorMessage] = useState('')
   const [createdAppointment, setCreatedAppointment] = useState(null)
+
+  const lookupVehicleByPlate = useCallback(async (rawPlate) => {
+    const cleaned = rawPlate.trim().toUpperCase()
+    if (!cleaned) {
+      setPlateError('Ingresa la placa de tu vehículo para continuar.')
+      return null
+    }
+    setSearchingVehicle(true)
+    setPlateError('')
+    try {
+      const found = await getVehicleByPlate(cleaned)
+      setResolvedVehicle(found)
+      return found
+    } catch (error) {
+      setResolvedVehicle(null)
+      setPlateError(
+        getApiErrorMessage(
+          error,
+          `No encontramos un vehículo registrado con la placa ${cleaned}.`,
+        ),
+      )
+      return null
+    } finally {
+      setSearchingVehicle(false)
+    }
+  }, [])
 
   useEffect(() => {
     if (!customerId) {
-      return
+      setCatalogLoading(false)
+      return undefined
     }
     let active = true
+    setCatalogLoading(true)
 
     Promise.all([getServiceTypes(), getEmployees()])
       .then(([serviceList, employeeList]) => {
@@ -112,379 +150,557 @@ export function BookAppointmentPage() {
       })
       .catch((error) => {
         if (active) {
-          setErrorMessage(
-            getApiErrorMessage(error, 'No fue posible cargar el catálogo para agendar tu cita.'),
-          )
+          setStepError(getApiErrorMessage(error, 'No fue posible cargar servicios ni especialistas.'))
         }
       })
       .finally(() => {
-        if (active) {
-          setLoading(false)
-        }
+        if (active) setCatalogLoading(false)
       })
+
+    if (initialPlate) {
+      lookupVehicleByPlate(initialPlate)
+    }
 
     return () => {
       active = false
     }
-  }, [customerId])
+  }, [customerId, initialPlate, lookupVehicleByPlate])
 
   const selectedService = useMemo(
-    () => serviceTypes.find((service) => service.id === form.serviceTypeId) || null,
-    [serviceTypes, form.serviceTypeId],
+    () => serviceTypes.find((item) => item.id === selectedServiceId) || null,
+    [serviceTypes, selectedServiceId],
   )
 
-  const handlePlateChange = (event) => {
-    const nextPlate = event.target.value.toUpperCase()
-    setForm((prev) => ({ ...prev, plate: nextPlate }))
-    setPlateError('')
-    setErrorMessage('')
-    if (resolvedVehicle && resolvedVehicle.plate !== nextPlate.trim()) {
-      setResolvedVehicle(null)
-    }
+  const selectedEmployee = useMemo(
+    () => employees.find((item) => item.id === selectedEmployeeId) || null,
+    [employees, selectedEmployeeId],
+  )
+
+  const isSlotDisabled = (slot) => {
+    if (!slot.available) return true
+    if (!selectedDate) return false
+    const candidate = new Date(`${selectedDate}T${slot.time}:00`)
+    if (Number.isNaN(candidate.getTime())) return true
+    if (candidate.getTime() <= renderTimestamp) return true
+    return !isWithinOperatingHours(candidate)
   }
 
-  const handleDateTimeChange = (event) => {
-    const nextValue = event.target.value
-    setForm((prev) => ({ ...prev, dateTime: nextValue }))
-    setErrorMessage('')
-    setTimeError(nextValue ? validateAppointmentDateTime(nextValue) : '')
-  }
+  const handleNextStep = async () => {
+    setStepError('')
 
-  const handleFieldChange = (field) => (event) => {
-    const value = event.target.value
-    setForm((prev) => ({ ...prev, [field]: value }))
-    if (errorMessage) {
-      setErrorMessage('')
-    }
-  }
-
-  const lookupVehicleByPlate = async (rawPlate) => {
-    const normalizedPlate = rawPlate.trim().toUpperCase()
-    if (!normalizedPlate) {
-      setPlateError('Ingresa la placa del vehículo.')
-      return null
-    }
-
-    setSearchingVehicle(true)
-    setPlateError('')
-    try {
-      const vehicle = await getVehicleByPlate(normalizedPlate)
-      setResolvedVehicle(vehicle)
-      return vehicle
-    } catch (error) {
-      setResolvedVehicle(null)
-      setPlateError(
-        getApiErrorMessage(
-          error,
-          `No encontramos un vehículo registrado con la placa ${normalizedPlate}.`,
-        ),
-      )
-      return null
-    } finally {
-      setSearchingVehicle(false)
-    }
-  }
-
-  const handleSearchPlateClick = async () => {
-    await lookupVehicleByPlate(form.plate)
-  }
-
-  const handleSubmit = async (event) => {
-    event.preventDefault()
-    if (!customerId) {
-      return
-    }
-
-    setErrorMessage('')
-    setCreatedAppointment(null)
-
-    const normalizedPlate = form.plate.trim().toUpperCase()
-    if (!normalizedPlate) {
-      setPlateError('Ingresa la placa de tu vehículo.')
-      return
-    }
-
-    const scheduleValidationError = validateAppointmentDateTime(form.dateTime)
-    if (scheduleValidationError) {
-      setTimeError(scheduleValidationError)
-      setErrorMessage(scheduleValidationError)
-      return
-    }
-
-    if (!form.serviceTypeId || !form.employeeId) {
-      setErrorMessage('Selecciona el tipo de servicio y el especialista para confirmar la cita.')
-      return
-    }
-
-    const parsedDate = new Date(form.dateTime)
-    setSubmitting(true)
-    try {
-      let vehicle = resolvedVehicle
-      if (!vehicle || vehicle.plate?.toUpperCase() !== normalizedPlate) {
-        vehicle = await lookupVehicleByPlate(normalizedPlate)
-        if (!vehicle?.id) {
-          return
-        }
+    if (step === 1) {
+      const cleaned = plate.trim().toUpperCase()
+      if (resolvedVehicle && resolvedVehicle.plate?.toUpperCase() === cleaned) {
+        setStep(2)
+        return
       }
+      const found = await lookupVehicleByPlate(cleaned)
+      if (found?.id) {
+        setStep(2)
+      }
+      return
+    }
 
-      const response = await createAppointment({
+    if (step === 2) {
+      if (!selectedServiceId) {
+        setStepError('Selecciona el servicio de lavado o detailing que deseas agendar.')
+        return
+      }
+      setStep(3)
+      return
+    }
+
+    if (step === 3) {
+      if (!selectedDate || !selectedTime) {
+        setStepError('Elige una fecha y una franja horaria disponible.')
+        return
+      }
+      const parsedDateTime = new Date(`${selectedDate}T${selectedTime}:00`)
+      if (Number.isNaN(parsedDateTime.getTime()) || parsedDateTime <= new Date()) {
+        setStepError('Selecciona una fecha y hora futura.')
+        return
+      }
+      if (!isWithinOperatingHours(parsedDateTime)) {
+        setStepError('Horario de atención: 7am-12pm y 2:30pm-9pm')
+        return
+      }
+      if (!selectedEmployeeId) {
+        setStepError('Elige al especialista que atenderá tu vehículo.')
+        return
+      }
+      setStep(4)
+    }
+  }
+
+  const handleConfirmBooking = async () => {
+    if (!customerId || !resolvedVehicle?.id || !selectedServiceId || !selectedEmployeeId) {
+      return
+    }
+
+    const parsedDateTime = new Date(`${selectedDate}T${selectedTime}:00`)
+    if (!isWithinOperatingHours(parsedDateTime) || parsedDateTime <= new Date()) {
+      setStepError('Horario de atención: 7am-12pm y 2:30pm-9pm')
+      setStep(3)
+      return
+    }
+
+    setSubmitting(true)
+    setStepError('')
+    try {
+      const created = await createAppointment({
         customerId,
-        vehicleId: vehicle.id,
-        employeeId: form.employeeId,
-        serviceTypeId: form.serviceTypeId,
-        dateTime: parsedDate.toISOString(),
+        vehicleId: resolvedVehicle.id,
+        employeeId: selectedEmployeeId,
+        serviceTypeId: selectedServiceId,
+        dateTime: parsedDateTime.toISOString(),
+        status: 'PENDING',
       })
-
-      setCreatedAppointment(response)
-      setForm(INITIAL_FORM)
-      setResolvedVehicle(null)
-      setTimeError('')
+      setCreatedAppointment(created)
+      showToast({
+        type: 'success',
+        title: 'Cita confirmada',
+        description: `Placa ${resolvedVehicle.plate} agendada correctamente.`,
+      })
     } catch (error) {
-      setErrorMessage(getApiErrorMessage(error, 'No fue posible agendar tu cita.'))
+      setStepError(getApiErrorMessage(error, 'No fue posible confirmar tu cita.'))
     } finally {
       setSubmitting(false)
     }
   }
 
+  const resetWizard = () => {
+    setCreatedAppointment(null)
+    setStep(1)
+    setPlate('')
+    setResolvedVehicle(null)
+    setPlateError('')
+    setSelectedServiceId('')
+    setSelectedDate(todayIso)
+    setSelectedTime('')
+    setSelectedEmployeeId('')
+    setStepError('')
+  }
+
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-bold text-slate-900">Agendar Cita</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Ingresa la placa de tu vehículo, elige el servicio de detailing, tu especialista y un horario dentro de nuestras franjas de atención.
-          </p>
-        </section>
+      <div className="mx-auto max-w-3xl space-y-5">
+        <div>
+          <p className="text-[13px] font-medium text-[#5B5F7A]">Reserva en 4 pasos</p>
+          <h1 className="text-[26px] font-bold tracking-tight text-[#1E1B4B]">Agendar Cita</h1>
+        </div>
 
         {!customerId ? (
           <CompleteCustomerProfileCard />
-        ) : loading ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500 shadow-xs">
-            Cargando catálogo de servicios y especialistas...
-          </div>
+        ) : createdAppointment ? (
+          <section className="rounded-2xl border border-[#15803D]/25 bg-white p-6 text-center shadow-card sm:p-8">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#DCFCE7] text-[#15803D]">
+              <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+            </div>
+            <h2 className="mt-4 text-xl font-bold text-[#1E1B4B]">¡Cita reservada con éxito!</h2>
+            <p className="mt-1 text-sm text-[#5B5F7A]">
+              Tu vehículo{' '}
+              <strong className="font-semibold text-[#1E1B4B]">
+                {createdAppointment.vehiclePlate || resolvedVehicle?.plate}
+              </strong>{' '}
+              quedó agendado para{' '}
+              <strong className="font-semibold text-[#1E1B4B]">
+                {createdAppointment.serviceName || selectedService?.name}
+              </strong>
+              .
+            </p>
+
+            <div className="mt-5 rounded-xl border border-[#15803D]/20 bg-[#DCFCE7]/50 px-4 py-3 text-xs font-semibold text-[#15803D]">
+              Pago en efectivo al finalizar
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <Link
+                to="/portal/historial"
+                className="inline-flex h-[52px] items-center justify-center rounded-xl bg-[#4F46E5] px-6 text-sm font-semibold text-white hover:bg-[#4338CA]"
+              >
+                Seguir estado en vivo
+              </Link>
+              <Button variant="secondary" size="l" onClick={resetWizard}>
+                Agendar otra cita
+              </Button>
+            </div>
+          </section>
         ) : (
           <>
-            {errorMessage && (
+            <nav aria-label="Progreso de reserva" className="rounded-2xl border border-[#E4E6F2] bg-white p-4 shadow-card">
+              <ol className="grid grid-cols-4 gap-2">
+                {STEPS.map((item) => {
+                  const isDone = step > item.id
+                  const isCurrent = step === item.id
+                  return (
+                    <li key={item.id} className="flex flex-col items-center text-center">
+                      <div
+                        className={[
+                          'flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition',
+                          isDone
+                            ? 'bg-[#15803D] text-white'
+                            : isCurrent
+                              ? 'bg-[#4F46E5] text-white ring-4 ring-[#4F46E5]/15'
+                              : 'bg-[#F5F6FB] text-[#5B5F7A]',
+                        ].join(' ')}
+                      >
+                        {isDone ? '✓' : item.id}
+                      </div>
+                      <span
+                        className={[
+                          'mt-1.5 text-[11px] font-semibold',
+                          isCurrent ? 'text-[#1E1B4B]' : 'text-[#5B5F7A]',
+                        ].join(' ')}
+                      >
+                        {item.label}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ol>
+            </nav>
+
+            {stepError && (
               <div
                 role="alert"
-                className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+                className="rounded-xl border border-[#B91C1C]/20 bg-[#FEE2E2] px-4 py-3 text-sm font-medium text-[#B91C1C]"
               >
-                {errorMessage}
+                {stepError}
               </div>
             )}
 
-            {createdAppointment && (
-              <section
-                aria-live="polite"
-                className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 shadow-xs"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-4">
+            <section className="rounded-2xl border border-[#E4E6F2] bg-white p-5 shadow-card sm:p-6">
+              {step === 1 && (
+                <div className="space-y-5">
                   <div>
-                    <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                      Cita confirmada ({createdAppointment.status || 'PENDING'})
-                    </span>
-                    <h3 className="mt-2 text-lg font-bold text-emerald-950">
-                      Tu turno fue agendado exitosamente
-                    </h3>
-                    <dl className="mt-3 grid gap-2 text-sm text-emerald-900 sm:grid-cols-2">
-                      <div>
-                        <dt className="text-xs font-medium text-emerald-700">Servicio</dt>
-                        <dd className="font-semibold">{createdAppointment.serviceTypeName}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs font-medium text-emerald-700">Vehículo</dt>
-                        <dd className="font-semibold">{createdAppointment.vehiclePlate}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs font-medium text-emerald-700">Especialista</dt>
-                        <dd className="font-semibold">{createdAppointment.employeeName}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs font-medium text-emerald-700">Fecha y hora</dt>
-                        <dd className="font-semibold">
-                          {formatAppointmentDateTime(createdAppointment.dateTime)}
-                        </dd>
-                      </div>
-                    </dl>
-                    <p className="mt-3 text-xs font-semibold text-emerald-800">
-                      Modalidad: Pago en efectivo al finalizar el servicio.
+                    <h2 className="text-lg font-semibold text-[#1E1B4B]">
+                      1. Escribe la placa de tu vehículo
+                    </h2>
+                    <p className="mt-1 text-sm text-[#5B5F7A]">
+                      Verificamos tu auto directamente por placa antes de elegir el servicio.
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap gap-3">
-                    <Link
-                      to="/portal/historial"
-                      className="inline-flex items-center justify-center rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-800"
-                    >
-                      Ver historial de citas
-                    </Link>
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {(serviceTypes.length === 0 || employees.length === 0) && (
-              <div
-                role="alert"
-                className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
-              >
-                {serviceTypes.length === 0
-                  ? 'Actualmente no hay tipos de servicio disponibles en el catálogo.'
-                  : 'Actualmente no hay especialistas disponibles para asignar la cita.'}
-              </div>
-            )}
-
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-                <div className="space-y-2">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                     <div className="flex-1">
-                      <Input
-                        id="appointment-plate"
-                        label="Placa del vehículo"
-                        type="text"
-                        placeholder="Ej: ABC123"
-                        value={form.plate}
-                        onChange={handlePlateChange}
+                      <PlateInput
+                        id="booking-plate"
+                        label="Placa colombiana"
+                        value={plate}
+                        onChange={(cleaned) => {
+                          setPlate(cleaned)
+                          setPlateError('')
+                          if (resolvedVehicle && resolvedVehicle.plate?.toUpperCase() !== cleaned) {
+                            setResolvedVehicle(null)
+                          }
+                        }}
                         error={plateError}
-                        className="uppercase"
                         required
                       />
                     </div>
                     <Button
                       type="button"
                       variant="secondary"
+                      size="l"
                       loading={searchingVehicle}
-                      onClick={handleSearchPlateClick}
-                      className="sm:mb-0.5"
+                      onClick={() => lookupVehicleByPlate(plate)}
                     >
-                      Buscar placa
+                      Verificar placa
                     </Button>
                   </div>
 
-                  {resolvedVehicle ? (
-                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-900">
-                      Vehículo verificado:{' '}
-                      <span className="font-bold">{resolvedVehicle.plate}</span> ·{' '}
-                      {resolvedVehicle.brand} {resolvedVehicle.model} ({resolvedVehicle.year})
+                  {resolvedVehicle && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#15803D]/25 bg-[#DCFCE7]/50 p-4">
+                      <div>
+                        <span className="text-xs font-semibold tracking-wider text-[#15803D] uppercase">
+                          Vehículo verificado
+                        </span>
+                        <p className="mt-0.5 text-base font-bold text-[#1E1B4B]">
+                          {resolvedVehicle.brand} {resolvedVehicle.model} · {resolvedVehicle.year}
+                        </p>
+                      </div>
+                      <span className="rounded-md border border-[#1E1B4B] bg-amber-300 px-3 py-1 font-mono text-sm font-extrabold tracking-widest text-[#1E1B4B]">
+                        {resolvedVehicle.plate}
+                      </span>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-[#5B5F7A]">
+                    ¿Tu placa aún no aparece registrada?{' '}
+                    <Link to="/portal/mis-vehiculos" className="font-semibold text-[#4F46E5] hover:underline">
+                      Regístrala primero en Mis Vehículos →
+                    </Link>
+                  </p>
+                </div>
+              )}
+
+              {step === 2 && (
+                <div className="space-y-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-[#1E1B4B]">2. Selecciona el servicio</h2>
+                    <p className="mt-1 text-sm text-[#5B5F7A]">
+                      Elige el tratamiento para tu vehículo{' '}
+                      <strong className="font-semibold text-[#1E1B4B]">{resolvedVehicle?.plate}</strong>.
+                    </p>
+                  </div>
+
+                  {catalogLoading ? (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {[1, 2, 3, 4].map((skeleton) => (
+                        <div key={skeleton} className="h-28 animate-pulse rounded-xl bg-[#F5F6FB]" />
+                      ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-500">
-                      Ingresa la placa registrada de tu vehículo.{' '}
-                      <Link to="/portal/mis-vehiculos" className="font-semibold text-sky-600 hover:text-sky-700">
-                        ¿Aún no lo registras? Hazlo en Mis Vehículos
-                      </Link>
-                      .
-                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {serviceTypes.map((service) => {
+                        const selected = selectedServiceId === service.id
+                        return (
+                          <button
+                            key={service.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedServiceId(service.id)
+                              setStepError('')
+                            }}
+                            className={[
+                              'flex flex-col justify-between rounded-xl border p-4 text-left transition',
+                              selected
+                                ? 'border-[#4F46E5] bg-indigo-50/60 ring-2 ring-[#4F46E5]/20'
+                                : 'border-[#E4E6F2] bg-white hover:border-[#4F46E5]/40',
+                            ].join(' ')}
+                          >
+                            <div>
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="text-sm font-bold text-[#1E1B4B]">
+                                  {service.name}
+                                </span>
+                                <span className="shrink-0 text-sm font-bold tabular-nums text-[#4F46E5]">
+                                  {formatCop(service.price)}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-xs text-[#5B5F7A]">
+                                {service.description || 'Cuidado completo para tu vehículo.'}
+                              </p>
+                            </div>
+                            <span className="mt-3 inline-flex w-fit rounded-full bg-[#F5F6FB] px-2.5 py-0.5 text-[11px] font-semibold text-[#5B5F7A]">
+                              Duración: {service.durationMin} min
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
                   )}
                 </div>
+              )}
 
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <label htmlFor="appointment-service" className="block text-sm font-medium text-slate-700">
-                      Tipo de servicio
-                    </label>
-                    <select
-                      id="appointment-service"
-                      value={form.serviceTypeId}
-                      onChange={handleFieldChange('serviceTypeId')}
-                      className="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 focus:outline-none"
-                      required
-                    >
-                      <option value="">Selecciona un servicio...</option>
-                      {serviceTypes.map((service) => (
-                        <option key={service.id} value={service.id}>
-                          {service.name} ({formatPrice(service.price)} · {service.durationMin} min)
-                        </option>
-                      ))}
-                    </select>
+              {step === 3 && (
+                <div className="space-y-5">
+                  <div>
+                    <h2 className="text-lg font-semibold text-[#1E1B4B]">
+                      3. Fecha, hora y especialista
+                    </h2>
+                    <p className="mt-1 text-sm text-[#5B5F7A]">
+                      Horario de atención: 7:00 a. m.–12:00 p. m. y 2:30 p. m.–9:00 p. m.
+                    </p>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="appointment-employee" className="block text-sm font-medium text-slate-700">
-                      Especialista
-                    </label>
-                    <select
-                      id="appointment-employee"
-                      value={form.employeeId}
-                      onChange={handleFieldChange('employeeId')}
-                      className="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 focus:outline-none"
-                      required
-                    >
-                      <option value="">Selecciona un especialista...</option>
-                      {employees.map((employee) => (
-                        <option key={employee.id} value={employee.id}>
-                          {employee.name} ({employee.role})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <label htmlFor="appointment-datetime" className="block text-sm font-medium text-slate-700">
-                      Fecha y hora
+                    <label htmlFor="bookingDate" className="block text-sm font-medium text-[#1E1B4B]">
+                      Fecha de la cita
                     </label>
                     <input
-                      id="appointment-datetime"
-                      type="datetime-local"
-                      min={minDateTime}
-                      value={form.dateTime}
-                      onChange={handleDateTimeChange}
-                      className="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 focus:outline-none sm:max-w-sm"
-                      required
+                      id="bookingDate"
+                      type="date"
+                      min={todayIso}
+                      value={selectedDate}
+                      onChange={(e) => {
+                        setSelectedDate(e.target.value)
+                        setSelectedTime('')
+                        setStepError('')
+                      }}
+                      className="block h-11 w-full rounded-xl border border-[#E4E6F2] bg-white px-3.5 text-sm text-[#1E1B4B] focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/15 focus:outline-none sm:max-w-xs"
                     />
-                    <p className="text-xs text-slate-500">
-                      Horarios permitidos: de 7:00 a. m. a 12:00 p. m. y de 2:30 p. m. a 9:00 p. m.
-                    </p>
-                    {timeError && <p className="text-xs font-medium text-rose-600">{timeError}</p>}
                   </div>
-                </div>
 
-                <div className="rounded-xl border border-sky-100 bg-sky-50/70 p-4 space-y-3">
-                  {selectedService ? (
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="text-xs font-semibold tracking-wide text-sky-700 uppercase">
-                          Resumen del servicio seleccionado
-                        </p>
-                        <h3 className="mt-0.5 text-base font-bold text-slate-900">
-                          {selectedService.name}
-                        </h3>
-                        {selectedService.description && (
-                          <p className="mt-1 text-sm text-slate-600">{selectedService.description}</p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-sky-700">
-                          {formatPrice(selectedService.price)}
-                        </p>
-                        <p className="text-xs font-medium text-slate-600">
-                          Duración estimada: {selectedService.durationMin} min
-                        </p>
-                      </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-[#1E1B4B]">Franja horaria</p>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {TIME_SLOTS.map((slot) => {
+                        const disabled = isSlotDisabled(slot)
+                        const active = selectedTime === slot.time && !disabled
+                        return (
+                          <button
+                            key={slot.time}
+                            type="button"
+                            disabled={disabled}
+                            onClick={() => {
+                              setSelectedTime(slot.time)
+                              setStepError('')
+                            }}
+                            className={[
+                              'rounded-xl border px-3 py-2.5 text-left transition',
+                              disabled
+                                ? 'cursor-not-allowed border-[#E4E6F2] bg-[#F5F6FB] text-[#5B5F7A]/60'
+                                : active
+                                  ? 'border-[#4F46E5] bg-[#4F46E5] text-white shadow-xs'
+                                  : 'border-[#E4E6F2] bg-white text-[#1E1B4B] hover:border-[#4F46E5]',
+                            ].join(' ')}
+                          >
+                            <span className="block text-xs font-bold tabular-nums">{slot.label}</span>
+                            <span
+                              className={[
+                                'block text-[10px]',
+                                active ? 'text-indigo-100' : 'text-[#5B5F7A]',
+                              ].join(' ')}
+                            >
+                              {slot.reason || slot.period}
+                            </span>
+                          </button>
+                        )
+                      })}
                     </div>
-                  ) : (
-                    <p className="text-xs text-slate-600">
-                      Selecciona un servicio para ver el resumen de tarifa y duración estimada.
-                    </p>
-                  )}
+                  </div>
 
-                  <div className="border-t border-sky-200/70 pt-2.5 text-sm font-semibold text-slate-800">
-                    Pago en efectivo al finalizar el servicio
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-[#1E1B4B]">Especialista</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {employees.map((employee) => {
+                        const selected = selectedEmployeeId === employee.id
+                        return (
+                          <button
+                            key={employee.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedEmployeeId(employee.id)
+                              setStepError('')
+                            }}
+                            className={[
+                              'flex items-center gap-3 rounded-xl border p-3 text-left transition',
+                              selected
+                                ? 'border-[#4F46E5] bg-indigo-50/60 ring-2 ring-[#4F46E5]/20'
+                                : 'border-[#E4E6F2] bg-white hover:border-[#4F46E5]/40',
+                            ].join(' ')}
+                          >
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1E1B4B] text-xs font-bold text-white">
+                              {employee.name?.slice(0, 2).toUpperCase() || 'AC'}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-[#1E1B4B]">
+                                {employee.name}
+                              </p>
+                              <p className="truncate text-xs text-[#5B5F7A]">
+                                {employee.role || 'Especialista AutoClean'}
+                              </p>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
                 </div>
+              )}
 
-                <div className="flex justify-end pt-2">
-                  <Button
-                    type="submit"
-                    loading={submitting}
-                    disabled={serviceTypes.length === 0 || employees.length === 0 || Boolean(timeError)}
-                  >
-                    Confirmar cita
-                  </Button>
+              {step === 4 && (
+                <div className="space-y-5">
+                  <div>
+                    <h2 className="text-lg font-semibold text-[#1E1B4B]">4. Resumen y confirmar</h2>
+                    <p className="mt-1 text-sm text-[#5B5F7A]">
+                      Revisa los detalles de tu cita antes de confirmar.
+                    </p>
+                  </div>
+
+                  <dl className="divide-y divide-[#E4E6F2] rounded-xl border border-[#E4E6F2] bg-[#F5F6FB]/50">
+                    <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
+                      <dt className="text-[#5B5F7A]">Vehículo</dt>
+                      <dd className="text-right font-semibold text-[#1E1B4B]">
+                        <span className="mr-2 rounded bg-amber-300 px-2 py-0.5 font-mono text-xs font-extrabold text-[#1E1B4B]">
+                          {resolvedVehicle?.plate}
+                        </span>
+                        {resolvedVehicle?.brand} {resolvedVehicle?.model}
+                      </dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
+                      <dt className="text-[#5B5F7A]">Servicio</dt>
+                      <dd className="text-right font-semibold text-[#1E1B4B]">
+                        {selectedService?.name} · {selectedService?.durationMin} min
+                      </dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
+                      <dt className="text-[#5B5F7A]">Fecha y hora</dt>
+                      <dd className="text-right font-semibold capitalize text-[#1E1B4B]">
+                        {formatReadableDateTime(selectedDate, selectedTime)}
+                      </dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
+                      <dt className="text-[#5B5F7A]">Especialista</dt>
+                      <dd className="text-right font-semibold text-[#1E1B4B]">
+                        {selectedEmployee?.name}
+                      </dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 px-4 py-3.5 text-base">
+                      <dt className="font-semibold text-[#1E1B4B]">Total estimado</dt>
+                      <dd className="font-bold tabular-nums text-[#4F46E5]">
+                        {formatCop(selectedService?.price)}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  <div className="flex items-start gap-3 rounded-xl border border-[#15803D]/25 bg-[#DCFCE7]/60 p-4 text-[#15803D]">
+                    <svg className="mt-0.5 h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="2" y="6" width="20" height="12" rx="2" />
+                      <circle cx="12" cy="12" r="2.5" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-bold">Pago en efectivo al finalizar</p>
+                      <p className="text-xs">
+                        No realizamos cobros anticipados en línea. Pagas directamente en recepción al recibir tu vehículo listo.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </form>
+              )}
             </section>
+
+            <div className="flex items-center gap-3 pt-1">
+              {step > 1 && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="l"
+                  onClick={() => {
+                    setStep((prev) => prev - 1)
+                    setStepError('')
+                  }}
+                  disabled={submitting}
+                >
+                  Anterior
+                </Button>
+              )}
+
+              {step < 4 ? (
+                <Button
+                  type="button"
+                  size="l"
+                  loading={searchingVehicle}
+                  onClick={handleNextStep}
+                  className="flex-1"
+                >
+                  Continuar
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  size="l"
+                  loading={submitting}
+                  onClick={handleConfirmBooking}
+                  className="flex-1"
+                >
+                  Confirmar cita
+                </Button>
+              )}
+            </div>
           </>
         )}
       </div>

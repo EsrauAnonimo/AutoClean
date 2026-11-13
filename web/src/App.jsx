@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { ToastViewport } from './components/ToastViewport'
 import { AuthProvider } from './context/AuthContext'
 import { AppointmentHistoryPage } from './pages/AppointmentHistoryPage'
 import { AppointmentsPage } from './pages/AppointmentsPage'
@@ -25,6 +26,7 @@ const CLIENT_ROLES = ['CLIENTE']
 function App() {
   return (
     <AuthProvider>
+      <ToastViewport />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />

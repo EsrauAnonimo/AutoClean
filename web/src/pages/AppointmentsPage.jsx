@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { AppointmentStatusBadge } from '../components/AppointmentStatusBadge'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { MainLayout } from '../components/MainLayout'
+import { VehicleStatusBadge } from '../components/VehicleStatusBadge'
 import { getApiErrorMessage } from '../services/api'
 import {
   createAppointment,
@@ -13,26 +15,7 @@ import {
   updateVehicleStatus,
 } from '../services/appointmentService'
 import { getEmployees, getServiceTypes } from '../services/catalogService'
-import { getVehicleStatusMeta } from '../utils/vehicleStatus'
-
-const STATUS_META = {
-  PENDING: {
-    label: 'Pendiente',
-    badgeClass: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
-  },
-  IN_PROGRESS: {
-    label: 'En progreso',
-    badgeClass: 'bg-sky-50 text-sky-700 ring-1 ring-sky-200',
-  },
-  FINISHED: {
-    label: 'Finalizada',
-    badgeClass: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
-  },
-  CANCELLED: {
-    label: 'Cancelada',
-    badgeClass: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200',
-  },
-}
+import { showToast } from '../utils/toast'
 
 const INITIAL_FORM = {
   customerId: '',
@@ -41,6 +24,12 @@ const INITIAL_FORM = {
   serviceTypeId: '',
   dateTime: '',
 }
+
+const KANBAN_COLUMNS = [
+  { key: 'PENDING', title: 'Pendiente', pillClass: 'bg-[#FEF3C7] text-[#B45309]' },
+  { key: 'IN_PROGRESS', title: 'En proceso', pillClass: 'bg-[#EDE9FE] text-[#6D28D9]' },
+  { key: 'FINISHED', title: 'Finalizada', pillClass: 'bg-[#DCFCE7] text-[#15803D]' },
+]
 
 function formatDateTime(value) {
   if (!value) return '—'
@@ -52,8 +41,25 @@ function formatDateTime(value) {
   }).format(date)
 }
 
+function formatCop(value) {
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0)
+}
+
+function isWithinOperatingHours(dateTimeString) {
+  if (!dateTimeString) return true
+  const d = new Date(dateTimeString)
+  if (Number.isNaN(d.getTime())) return false
+  const mins = d.getHours() * 60 + d.getMinutes()
+  return (mins >= 420 && mins <= 720) || (mins >= 870 && mins <= 1260)
+}
+
 /**
- * Vista de gestión de agenda de citas con creación y máquina de estados (PATCH).
+ * Agenda de Citas Admin: tablero Kanban (PENDIENTE -> EN PROCESO -> FINALIZADA)
+ * con toggle a vista de tabla, filtros, bloqueo horario y confirmación de efectivo al entregar.
  */
 export function AppointmentsPage() {
   const [appointments, setAppointments] = useState([])
@@ -62,7 +68,13 @@ export function AppointmentsPage() {
   const [employees, setEmployees] = useState([])
   const [serviceTypes, setServiceTypes] = useState([])
 
+  const [viewMode, setViewMode] = useState('kanban')
+  const [dateFilter, setDateFilter] = useState('')
+  const [employeeFilter, setEmployeeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [deliverConfirmTarget, setDeliverConfirmTarget] = useState(null)
   const [form, setForm] = useState(INITIAL_FORM)
 
   const [loading, setLoading] = useState(true)
@@ -70,111 +82,70 @@ export function AppointmentsPage() {
   const [updatingId, setUpdatingId] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
 
-  const loadData = useCallback(async (selectedStatus = statusFilter) => {
+  const loadData = useCallback(async () => {
     setLoading(true)
     setErrorMessage('')
     try {
-      const [appointmentList, customerList, vehicleList, employeeList, serviceList] = await Promise.all([
-        getAppointments(selectedStatus ? { status: selectedStatus } : {}),
-        getCustomers(),
-        getVehicles(),
-        getEmployees(),
-        getServiceTypes(),
-      ])
-      setAppointments(appointmentList)
-      setCustomers(customerList)
-      setVehicles(vehicleList)
-      setEmployees(employeeList)
-      setServiceTypes(serviceList)
+      const [appointmentList, customerList, vehicleList, employeeList, serviceList] =
+        await Promise.all([
+          getAppointments(),
+          getCustomers(),
+          getVehicles(),
+          getEmployees(),
+          getServiceTypes(),
+        ])
+      setAppointments(Array.isArray(appointmentList) ? appointmentList : [])
+      setCustomers(Array.isArray(customerList) ? customerList : [])
+      setVehicles(Array.isArray(vehicleList) ? vehicleList : [])
+      setEmployees(Array.isArray(employeeList) ? employeeList : [])
+      setServiceTypes(Array.isArray(serviceList) ? serviceList : [])
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error, 'No fue posible cargar la agenda de citas.'))
     } finally {
       setLoading(false)
     }
-  }, [statusFilter])
+  }, [])
 
   useEffect(() => {
-    let active = true
-    Promise.all([
-      getAppointments(),
-      getCustomers(),
-      getVehicles(),
-      getEmployees(),
-      getServiceTypes(),
-    ])
-      .then(([appointmentList, customerList, vehicleList, employeeList, serviceList]) => {
-        if (!active) return
-        setAppointments(appointmentList)
-        setCustomers(customerList)
-        setVehicles(vehicleList)
-        setEmployees(employeeList)
-        setServiceTypes(serviceList)
-      })
-      .catch((error) => {
-        if (active) {
-          setErrorMessage(getApiErrorMessage(error, 'No fue posible cargar la agenda de citas.'))
+    loadData()
+  }, [loadData])
+
+  const serviceById = useMemo(() => {
+    const map = new Map()
+    for (const s of serviceTypes) map.set(s.id, s)
+    return map
+  }, [serviceTypes])
+
+  const vehicleById = useMemo(() => {
+    const map = new Map()
+    for (const v of vehicles) map.set(v.id, v)
+    return map
+  }, [vehicles])
+
+  const filteredAppointments = useMemo(() => {
+    return appointments.filter((item) => {
+      if (statusFilter && item.status !== statusFilter) return false
+      if (employeeFilter && item.employeeId !== employeeFilter) return false
+      if (dateFilter) {
+        const d = new Date(item.dateTime)
+        if (!Number.isNaN(d.getTime())) {
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+            d.getDate(),
+          ).padStart(2, '0')}`
+          if (key !== dateFilter) return false
         }
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
-    return () => {
-      active = false
-    }
-  }, [])
+      }
+      return true
+    })
+  }, [appointments, dateFilter, employeeFilter, statusFilter])
 
   const filteredVehicles = useMemo(() => {
     if (!form.customerId) return []
     return vehicles.filter((vehicle) => vehicle.customerId === form.customerId)
   }, [vehicles, form.customerId])
 
-  const handleCustomerChange = (customerId) => {
-    setForm((prev) => ({
-      ...prev,
-      customerId,
-      vehicleId: '',
-    }))
-  }
-
-  const handleCreate = async (event) => {
-    event.preventDefault()
-    setErrorMessage('')
-
-    if (!form.customerId || !form.vehicleId || !form.employeeId || !form.serviceTypeId || !form.dateTime) {
-      setErrorMessage('Completa cliente, vehículo, empleado, servicio y fecha/hora para agendar la cita.')
-      return
-    }
-
-    const parsedDate = new Date(form.dateTime)
-    if (Number.isNaN(parsedDate.getTime())) {
-      setErrorMessage('La fecha y hora ingresadas no son válidas.')
-      return
-    }
-
-    setSubmitting(true)
-    try {
-      await createAppointment({
-        customerId: form.customerId,
-        vehicleId: form.vehicleId,
-        employeeId: form.employeeId,
-        serviceTypeId: form.serviceTypeId,
-        dateTime: parsedDate.toISOString(),
-        status: 'PENDING',
-      })
-      setForm(INITIAL_FORM)
-      await loadData(statusFilter)
-    } catch (error) {
-      setErrorMessage(getApiErrorMessage(error, 'No fue posible crear la cita.'))
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   const applyAppointmentUpdate = (updated) => {
-    setAppointments((prev) => {
-      const mapped = prev.map((item) => (item.id === updated.id ? updated : item))
-      return statusFilter ? mapped.filter((item) => item.status === statusFilter) : mapped
-    })
+    setAppointments((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
   }
 
   const handleStatusChange = async (appointmentId, nextStatus) => {
@@ -183,6 +154,11 @@ export function AppointmentsPage() {
     try {
       const updated = await updateAppointmentStatus(appointmentId, nextStatus)
       applyAppointmentUpdate(updated)
+      showToast({
+        type: 'info',
+        title: 'Estado de cita actualizado',
+        description: `La cita pasó a ${nextStatus}.`,
+      })
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error, 'No fue posible actualizar el estado de la cita.'))
     } finally {
@@ -197,6 +173,11 @@ export function AppointmentsPage() {
       await updateAppointmentStatus(appointmentId, 'IN_PROGRESS')
       const updated = await updateVehicleStatus(appointmentId, 'WASHING')
       applyAppointmentUpdate(updated)
+      showToast({
+        type: 'success',
+        title: 'Servicio iniciado',
+        description: `${updated.vehiclePlate} ahora está en proceso (Lavando).`,
+      })
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error, 'No fue posible iniciar el servicio.'))
     } finally {
@@ -204,12 +185,17 @@ export function AppointmentsPage() {
     }
   }
 
-  const handleVehicleStatusChange = async (appointmentId, nextVehicleStatus) => {
+  const handleVehicleStatusChange = async (appointmentId, nextVehicleStatus, customMsg) => {
     setErrorMessage('')
     setUpdatingId(appointmentId)
     try {
       const updated = await updateVehicleStatus(appointmentId, nextVehicleStatus)
       applyAppointmentUpdate(updated)
+      showToast({
+        type: 'success',
+        title: customMsg || 'Estado del vehículo actualizado',
+        description: `${updated.vehiclePlate} actualizado correctamente.`,
+      })
     } catch (error) {
       setErrorMessage(
         getApiErrorMessage(error, 'No fue posible actualizar el estado del vehículo.'),
@@ -219,6 +205,17 @@ export function AppointmentsPage() {
     }
   }
 
+  const handleConfirmDelivery = async () => {
+    if (!deliverConfirmTarget) return
+    const target = deliverConfirmTarget
+    setDeliverConfirmTarget(null)
+    await handleVehicleStatusChange(
+      target.id,
+      'DELIVERED',
+      `Entrega y pago en efectivo confirmados (${target.vehiclePlate})`,
+    )
+  }
+
   const handleDelete = async (appointmentId) => {
     if (!window.confirm('¿Deseas eliminar esta cita?')) return
     setErrorMessage('')
@@ -226,6 +223,7 @@ export function AppointmentsPage() {
     try {
       await deleteAppointment(appointmentId)
       setAppointments((prev) => prev.filter((item) => item.id !== appointmentId))
+      showToast({ type: 'info', title: 'Cita eliminada' })
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error, 'No fue posible eliminar la cita.'))
     } finally {
@@ -233,303 +231,533 @@ export function AppointmentsPage() {
     }
   }
 
+  const handleCreate = async (event) => {
+    event.preventDefault()
+    setErrorMessage('')
+
+    if (
+      !form.customerId ||
+      !form.vehicleId ||
+      !form.employeeId ||
+      !form.serviceTypeId ||
+      !form.dateTime
+    ) {
+      setErrorMessage('Completa cliente, vehículo, empleado, servicio y fecha/hora.')
+      return
+    }
+    if (!isWithinOperatingHours(form.dateTime)) {
+      setErrorMessage('Horario de atención: 7:00 a. m.–12:00 p. m. y 2:30 p. m.–9:00 p. m.')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const created = await createAppointment({
+        customerId: form.customerId,
+        vehicleId: form.vehicleId,
+        employeeId: form.employeeId,
+        serviceTypeId: form.serviceTypeId,
+        dateTime: new Date(form.dateTime).toISOString(),
+        status: 'PENDING',
+      })
+      setAppointments((prev) => [created, ...prev])
+      setForm(INITIAL_FORM)
+      setShowCreateModal(false)
+      showToast({
+        type: 'success',
+        title: 'Cita programada',
+        description: `${created.vehiclePlate} agendado en estado Pendiente.`,
+      })
+    } catch (error) {
+      setErrorMessage(getApiErrorMessage(error, 'No fue posible crear la cita.'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const renderPrimaryButton = (appointment, compact = false) => {
+    const isBusy = updatingId === appointment.id
+    const sizeCls = compact ? 'h-[36px] px-3 text-xs' : 'h-[40px] w-full text-[13px]'
+
+    if (appointment.status === 'PENDING') {
+      return (
+        <button
+          type="button"
+          disabled={isBusy}
+          onClick={() => handleStartService(appointment.id)}
+          className={`${sizeCls} rounded-xl bg-[#4F46E5] font-semibold text-white transition hover:bg-[#4338CA] disabled:opacity-50`}
+        >
+          Iniciar Servicio
+        </button>
+      )
+    }
+    if (appointment.status === 'IN_PROGRESS' && appointment.vehicleStatus !== 'READY') {
+      return (
+        <button
+          type="button"
+          disabled={isBusy}
+          onClick={() =>
+            handleVehicleStatusChange(appointment.id, 'READY', 'Vehículo marcado como Listo')
+          }
+          className={`${sizeCls} rounded-xl bg-[#8B5CF6] font-semibold text-white transition hover:bg-[#7C3AED] disabled:opacity-50`}
+        >
+          Marcar como Listo
+        </button>
+      )
+    }
+    if (appointment.status === 'IN_PROGRESS') {
+      return (
+        <button
+          type="button"
+          disabled={isBusy}
+          onClick={() => handleStatusChange(appointment.id, 'FINISHED')}
+          className={`${sizeCls} rounded-xl bg-[#15803D] font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-50`}
+        >
+          Finalizar
+        </button>
+      )
+    }
+    if (appointment.status === 'FINISHED' && appointment.vehicleStatus !== 'DELIVERED') {
+      return (
+        <button
+          type="button"
+          disabled={isBusy}
+          onClick={() => setDeliverConfirmTarget(appointment)}
+          className={`${sizeCls} rounded-xl bg-[#15803D] font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-50`}
+        >
+          Entregar
+        </button>
+      )
+    }
+    return null
+  }
+
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="space-y-5">
+        {/* Cabecera + Toggle Kanban/Tabla + Nueva Cita */}
+        <section className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900">Agenda de Citas</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Programa turnos de lavado/detailing y gestiona su estado operativo.
+            <h1 className="text-[28px] leading-[34px] font-bold tracking-tight text-[#1E1B4B]">
+              Agenda de Citas
+            </h1>
+            <p className="mt-1 text-[14px] text-[#5B5F7A]">
+              Horario: 7:00 a. m.–12:00 p. m. y 2:30 p. m.–9:00 p. m. · Pago 100% en efectivo al entregar.
             </p>
           </div>
-
-          <div className="flex items-center gap-2">
-            <label htmlFor="statusFilter" className="text-xs font-medium text-slate-600">
-              Filtrar estado:
-            </label>
-            <select
-              id="statusFilter"
-              value={statusFilter}
-              onChange={(e) => {
-                const nextStatus = e.target.value
-                setStatusFilter(nextStatus)
-                loadData(nextStatus)
-              }}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-sky-500 focus:outline-none"
-            >
-              <option value="">Todos</option>
-              <option value="PENDING">PENDING</option>
-              <option value="IN_PROGRESS">IN_PROGRESS</option>
-              <option value="FINISHED">FINISHED</option>
-              <option value="CANCELLED">CANCELLED</option>
-            </select>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="inline-flex rounded-xl border border-[#E4E6F2] bg-white p-1">
+              <button
+                type="button"
+                onClick={() => setViewMode('kanban')}
+                className={`rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition ${
+                  viewMode === 'kanban'
+                    ? 'bg-[#4F46E5] text-white'
+                    : 'text-[#5B5F7A] hover:text-[#1E1B4B]'
+                }`}
+              >
+                Kanban
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition ${
+                  viewMode === 'table'
+                    ? 'bg-[#4F46E5] text-white'
+                    : 'text-[#5B5F7A] hover:text-[#1E1B4B]'
+                }`}
+              >
+                Tabla
+              </button>
+            </div>
+            <Button onClick={() => setShowCreateModal(true)}>+ Nueva cita</Button>
           </div>
-        </div>
+        </section>
+
+        {/* Filtros + franjas bloqueadas visibles */}
+        <section className="flex flex-wrap items-center gap-3 rounded-2xl border border-[#E4E6F2] bg-white p-4 shadow-card">
+          <input
+            type="date"
+            aria-label="Filtrar por fecha"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="h-[40px] rounded-xl border border-[#E4E6F2] px-3 text-[13px] text-[#1E1B4B] outline-none focus:border-[#4F46E5]"
+          />
+          <select
+            aria-label="Filtrar por especialista"
+            value={employeeFilter}
+            onChange={(e) => setEmployeeFilter(e.target.value)}
+            className="h-[40px] rounded-xl border border-[#E4E6F2] bg-white px-3 text-[13px] text-[#1E1B4B] outline-none focus:border-[#4F46E5]"
+          >
+            <option value="">Especialista: Todos</option>
+            {employees.map((emp) => (
+              <option key={emp.id} value={emp.id}>
+                {emp.name}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Filtrar por estado"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="h-[40px] rounded-xl border border-[#E4E6F2] bg-white px-3 text-[13px] text-[#1E1B4B] outline-none focus:border-[#4F46E5]"
+          >
+            <option value="">Estado: Todos</option>
+            <option value="PENDING">Pendiente</option>
+            <option value="IN_PROGRESS">En proceso</option>
+            <option value="FINISHED">Finalizada</option>
+            <option value="CANCELLED">Cancelada</option>
+          </select>
+          {(dateFilter || employeeFilter || statusFilter) && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setDateFilter('')
+                setEmployeeFilter('')
+                setStatusFilter('')
+              }}
+            >
+              Limpiar filtros
+            </Button>
+          )}
+
+          <div className="ml-auto hidden flex-wrap gap-2 text-[12px] font-medium text-[#5B5F7A] xl:flex">
+            <span className="rounded-lg bg-[#F5F6FB] px-2.5 py-1">12:00–14:30 Bloqueado (Almuerzo)</span>
+            <span className="rounded-lg bg-[#F5F6FB] px-2.5 py-1">21:00–07:00 Cerrado</span>
+          </div>
+        </section>
 
         {errorMessage && (
           <div
             role="alert"
-            className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+            className="rounded-xl border border-[#FECACA] bg-[#FEE2E2] px-4 py-3 text-sm font-medium text-[#B91C1C]"
           >
             {errorMessage}
           </div>
         )}
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-base font-semibold text-slate-900">Nueva cita</h3>
-            <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">
-              Estado por defecto: PENDING
-            </span>
+        {loading ? (
+          <div className="grid gap-4 lg:grid-cols-3">
+            {[1, 2, 3].map((col) => (
+              <div key={col} className="h-64 animate-pulse rounded-2xl border border-[#E4E6F2] bg-white p-4" />
+            ))}
           </div>
+        ) : viewMode === 'kanban' ? (
+          <section className="grid gap-4 lg:grid-cols-3">
+            {KANBAN_COLUMNS.map((col) => {
+              const items = filteredAppointments.filter((a) => a.status === col.key)
+              return (
+                <div
+                  key={col.key}
+                  className="flex flex-col gap-3 rounded-2xl border border-[#E4E6F2] bg-white/75 p-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${col.pillClass}`}>
+                      {col.title}
+                    </span>
+                    <span className="text-xs font-semibold text-[#5B5F7A] tabular-nums">
+                      {items.length}
+                    </span>
+                  </div>
 
-          <form onSubmit={handleCreate} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="space-y-1.5">
-              <label htmlFor="customerId" className="block text-sm font-medium text-slate-700">
-                Cliente
-              </label>
-              <select
-                id="customerId"
-                value={form.customerId}
-                onChange={(e) => handleCustomerChange(e.target.value)}
-                className="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 focus:outline-none"
-                required
-              >
-                <option value="">Selecciona un cliente...</option>
-                {customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name} ({customer.phone})
-                  </option>
-                ))}
-              </select>
-            </div>
+                  {items.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-[#E4E6F2] p-6 text-center text-xs text-[#5B5F7A]">
+                      Sin citas en esta etapa
+                    </div>
+                  ) : (
+                    items.map((appointment) => {
+                      const srv = serviceById.get(appointment.serviceTypeId)
+                      const veh = vehicleById.get(appointment.vehicleId)
+                      const vehicleLabel = veh ? `${veh.brand} ${veh.model}` : 'Vehículo'
+                      const isBusy = updatingId === appointment.id
 
-            <div className="space-y-1.5">
-              <label htmlFor="vehicleId" className="block text-sm font-medium text-slate-700">
-                Vehículo
-              </label>
-              <select
-                id="vehicleId"
-                value={form.vehicleId}
-                onChange={(e) => setForm((prev) => ({ ...prev, vehicleId: e.target.value }))}
-                disabled={!form.customerId}
-                className="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 focus:outline-none disabled:bg-slate-100 disabled:text-slate-400"
-                required
-              >
-                <option value="">
-                  {!form.customerId
-                    ? 'Primero elige un cliente'
-                    : filteredVehicles.length === 0
-                      ? 'Sin vehículos registrados para este cliente'
-                      : 'Selecciona un vehículo...'}
-                </option>
-                {filteredVehicles.map((vehicle) => (
-                  <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.plate} — {vehicle.brand} {vehicle.model} ({vehicle.year})
-                  </option>
-                ))}
-              </select>
-            </div>
+                      return (
+                        <article
+                          key={appointment.id}
+                          className="rounded-2xl border border-[#E4E6F2] bg-white p-4 shadow-card transition hover:border-[#4F46E5]/35"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="rounded-lg border border-[#1E1B4B] bg-[#FEF08A] px-2.5 py-0.5 font-mono text-xs font-extrabold tracking-wider text-[#1E1B4B]">
+                              {appointment.vehiclePlate || '---'}
+                            </span>
+                            <VehicleStatusBadge status={appointment.vehicleStatus} />
+                          </div>
 
-            <div className="space-y-1.5">
-              <label htmlFor="serviceTypeId" className="block text-sm font-medium text-slate-700">
-                Servicio
-              </label>
-              <select
-                id="serviceTypeId"
-                value={form.serviceTypeId}
-                onChange={(e) => setForm((prev) => ({ ...prev, serviceTypeId: e.target.value }))}
-                className="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 focus:outline-none"
-                required
-              >
-                <option value="">Selecciona un servicio...</option>
-                {serviceTypes.map((service) => (
-                  <option key={service.id} value={service.id}>
-                    {service.name} (${Number(service.price).toLocaleString('es-CO')} · {service.durationMin} min)
-                  </option>
-                ))}
-              </select>
-            </div>
+                          <h3 className="mt-2.5 text-[15px] font-bold text-[#1E1B4B]">
+                            {vehicleLabel} · {appointment.serviceTypeName}
+                          </h3>
+                          <p className="mt-0.5 text-[13px] text-[#5B5F7A]">
+                            {appointment.customerName}
+                            {srv?.price != null && (
+                              <>
+                                {' · '}
+                                <strong className="text-[#1E1B4B] tabular-nums">
+                                  {formatCop(srv.price)}
+                                </strong>
+                              </>
+                            )}
+                          </p>
+                          <p className="mt-1 text-[12px] text-[#5B5F7A]">
+                            {formatDateTime(appointment.dateTime)} · {appointment.employeeName}
+                          </p>
 
-            <div className="space-y-1.5">
-              <label htmlFor="employeeId" className="block text-sm font-medium text-slate-700">
-                Empleado asignado
-              </label>
-              <select
-                id="employeeId"
-                value={form.employeeId}
-                onChange={(e) => setForm((prev) => ({ ...prev, employeeId: e.target.value }))}
-                className="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 focus:outline-none"
-                required
-              >
-                <option value="">Selecciona un empleado...</option>
-                {employees.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name} — {employee.role}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <Input
-              id="dateTime"
-              label="Fecha y hora"
-              type="datetime-local"
-              value={form.dateTime}
-              onChange={(e) => setForm((prev) => ({ ...prev, dateTime: e.target.value }))}
-              required
-            />
-
-            <div className="flex items-end">
-              <Button type="submit" loading={submitting} className="w-full">
-                Agendar cita
-              </Button>
-            </div>
-          </form>
-        </section>
-
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-            <h3 className="text-base font-semibold text-slate-900">Listado de citas</h3>
-            <Button variant="secondary" onClick={() => loadData(statusFilter)} disabled={loading}>
-              Actualizar
-            </Button>
-          </div>
-
-          {loading ? (
-            <div className="p-8 text-center text-sm text-slate-500">Cargando agenda de citas...</div>
-          ) : appointments.length === 0 ? (
-            <div className="p-8 text-center text-sm text-slate-500">
-              No hay citas registradas{statusFilter ? ` con estado ${statusFilter}` : ''}.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-                <thead className="bg-slate-50 text-xs font-semibold tracking-wider text-slate-600 uppercase">
-                  <tr>
-                    <th className="px-4 py-3">Fecha y hora</th>
-                    <th className="px-4 py-3">Cliente</th>
-                    <th className="px-4 py-3">Vehículo</th>
-                    <th className="px-4 py-3">Servicio</th>
-                    <th className="px-4 py-3">Empleado</th>
-                    <th className="px-4 py-3">Estado</th>
-                    <th className="px-4 py-3">Vehículo (vivo)</th>
-                    <th className="px-4 py-3 text-right">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {appointments.map((appointment) => {
-                    const meta = STATUS_META[appointment.status] || {
-                      label: appointment.status,
-                      badgeClass: 'bg-slate-100 text-slate-700',
-                    }
-                    const vehicleMeta = getVehicleStatusMeta(appointment.vehicleStatus)
-                    const isBusy = updatingId === appointment.id
-
-                    return (
-                      <tr key={appointment.id} className="hover:bg-slate-50/80">
-                        <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">
+                          <div className="mt-3 space-y-2">
+                            {renderPrimaryButton(appointment)}
+                            <div className="flex items-center justify-between gap-2 pt-1 text-xs">
+                              {appointment.status !== 'FINISHED' &&
+                              appointment.status !== 'CANCELLED' ? (
+                                <button
+                                  type="button"
+                                  disabled={isBusy}
+                                  onClick={() => handleStatusChange(appointment.id, 'CANCELLED')}
+                                  className="font-semibold text-[#B91C1C] hover:underline disabled:opacity-50"
+                                >
+                                  Cancelar cita
+                                </button>
+                              ) : (
+                                <span className="text-[#5B5F7A]">
+                                  {appointment.vehicleStatus === 'DELIVERED'
+                                    ? 'Pago en efectivo recibido'
+                                    : 'Finalizada'}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => handleDelete(appointment.id)}
+                                className="font-medium text-[#5B5F7A] hover:text-[#B91C1C] disabled:opacity-50"
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          </div>
+                        </article>
+                      )
+                    })
+                  )}
+                </div>
+              )
+            })}
+          </section>
+        ) : (
+          <section className="overflow-hidden rounded-2xl border border-[#E4E6F2] bg-white shadow-card">
+            {filteredAppointments.length === 0 ? (
+              <div className="p-10 text-center text-sm text-[#5B5F7A]">
+                No hay citas para los filtros seleccionados.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-[#E4E6F2] text-left text-sm">
+                  <thead className="bg-[#F5F6FB] text-xs font-semibold tracking-wider text-[#5B5F7A] uppercase">
+                    <tr>
+                      <th className="px-4 py-3">Fecha y hora</th>
+                      <th className="px-4 py-3">Placa</th>
+                      <th className="px-4 py-3">Cliente</th>
+                      <th className="px-4 py-3">Servicio</th>
+                      <th className="px-4 py-3">Especialista</th>
+                      <th className="px-4 py-3">Cita</th>
+                      <th className="px-4 py-3">Vehículo</th>
+                      <th className="px-4 py-3 text-right">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E4E6F2] bg-white">
+                    {filteredAppointments.map((appointment) => (
+                      <tr key={appointment.id} className="hover:bg-[#F5F6FB]/60">
+                        <td className="whitespace-nowrap px-4 py-3 font-medium text-[#1E1B4B]">
                           {formatDateTime(appointment.dateTime)}
                         </td>
-                        <td className="px-4 py-3 text-slate-700">{appointment.customerName || '—'}</td>
-                        <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-slate-700">
-                          {appointment.vehiclePlate || '—'}
-                        </td>
-                        <td className="px-4 py-3 text-slate-700">{appointment.serviceTypeName || '—'}</td>
-                        <td className="px-4 py-3 text-slate-700">{appointment.employeeName || '—'}</td>
                         <td className="whitespace-nowrap px-4 py-3">
-                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${meta.badgeClass}`}>
-                            {appointment.status}
+                          <span className="rounded bg-[#FEF08A] px-2 py-0.5 font-mono text-xs font-bold text-[#1E1B4B]">
+                            {appointment.vehiclePlate || '—'}
                           </span>
                         </td>
+                        <td className="px-4 py-3 text-[#5B5F7A]">{appointment.customerName || '—'}</td>
+                        <td className="px-4 py-3 text-[#1E1B4B]">{appointment.serviceTypeName || '—'}</td>
+                        <td className="px-4 py-3 text-[#5B5F7A]">{appointment.employeeName || '—'}</td>
                         <td className="whitespace-nowrap px-4 py-3">
-                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${vehicleMeta.badgeClass}`}>
-                            {vehicleMeta.label}
-                          </span>
+                          <AppointmentStatusBadge status={appointment.status} />
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <VehicleStatusBadge status={appointment.vehicleStatus} />
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-right">
-                          <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
-                            {appointment.status === 'PENDING' && (
-                              <>
-                                <button
-                                  type="button"
-                                  disabled={isBusy}
-                                  onClick={() => handleStartService(appointment.id)}
-                                  className="rounded-md bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-sky-700 disabled:opacity-50"
-                                >
-                                  Iniciar Servicio
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={isBusy}
-                                  onClick={() => handleStatusChange(appointment.id, 'CANCELLED')}
-                                  className="rounded-md bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-200 transition hover:bg-rose-100 disabled:opacity-50"
-                                >
-                                  Cancelar
-                                </button>
-                              </>
-                            )}
-                            {appointment.status === 'IN_PROGRESS' && (
-                              <>
-                                {appointment.vehicleStatus !== 'READY' && (
-                                  <button
-                                    type="button"
-                                    disabled={isBusy}
-                                    onClick={() => handleVehicleStatusChange(appointment.id, 'READY')}
-                                    className="rounded-md bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-amber-600 disabled:opacity-50"
-                                  >
-                                    Marcar como Listo
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  disabled={isBusy}
-                                  onClick={() => handleStatusChange(appointment.id, 'FINISHED')}
-                                  className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
-                                >
-                                  Finalizar
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={isBusy}
-                                  onClick={() => handleStatusChange(appointment.id, 'CANCELLED')}
-                                  className="rounded-md bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-200 transition hover:bg-rose-100 disabled:opacity-50"
-                                >
-                                  Cancelar
-                                </button>
-                              </>
-                            )}
-                            {appointment.status === 'FINISHED' &&
-                              appointment.vehicleStatus !== 'DELIVERED' && (
-                                <button
-                                  type="button"
-                                  disabled={isBusy}
-                                  onClick={() => handleVehicleStatusChange(appointment.id, 'DELIVERED')}
-                                  className="rounded-md bg-teal-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-teal-700 disabled:opacity-50"
-                                >
-                                  Entregar
-                                </button>
-                              )}
+                          <div className="inline-flex items-center gap-2">
+                            {renderPrimaryButton(appointment, true)}
                             <button
                               type="button"
-                              disabled={isBusy}
+                              disabled={updatingId === appointment.id}
                               onClick={() => handleDelete(appointment.id)}
-                              className="rounded-md px-2.5 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-rose-600 disabled:opacity-50"
+                              className="text-xs font-medium text-[#5B5F7A] hover:text-[#B91C1C]"
                             >
                               Eliminar
                             </button>
                           </div>
                         </td>
                       </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
       </div>
+
+      {/* Modal Nueva Cita */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1E1B4B]/45 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl border border-[#E4E6F2] bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-[18px] font-bold text-[#1E1B4B]">Nueva cita operativa</h2>
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="text-sm font-semibold text-[#5B5F7A] hover:text-[#1E1B4B]"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreate} className="space-y-4">
+              <div className="space-y-1.5">
+                <label htmlFor="modal-customer" className="block text-[13px] font-semibold">
+                  Cliente
+                </label>
+                <select
+                  id="modal-customer"
+                  value={form.customerId}
+                  onChange={(e) => setForm((p) => ({ ...p, customerId: e.target.value, vehicleId: '' }))}
+                  className="h-[44px] w-full rounded-xl border border-[#E4E6F2] bg-white px-3 text-sm"
+                  required
+                >
+                  <option value="">Selecciona un cliente...</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="modal-vehicle" className="block text-[13px] font-semibold">
+                  Vehículo
+                </label>
+                <select
+                  id="modal-vehicle"
+                  value={form.vehicleId}
+                  onChange={(e) => setForm((p) => ({ ...p, vehicleId: e.target.value }))}
+                  disabled={!form.customerId}
+                  className="h-[44px] w-full rounded-xl border border-[#E4E6F2] bg-white px-3 text-sm disabled:bg-[#F5F6FB]"
+                  required
+                >
+                  <option value="">
+                    {form.customerId ? 'Selecciona un vehículo...' : 'Elige primero el cliente'}
+                  </option>
+                  {filteredVehicles.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.plate} — {v.brand} {v.model}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label htmlFor="modal-service" className="block text-[13px] font-semibold">
+                    Servicio
+                  </label>
+                  <select
+                    id="modal-service"
+                    value={form.serviceTypeId}
+                    onChange={(e) => setForm((p) => ({ ...p, serviceTypeId: e.target.value }))}
+                    className="h-[44px] w-full rounded-xl border border-[#E4E6F2] bg-white px-3 text-sm"
+                    required
+                  >
+                    <option value="">Selecciona servicio...</option>
+                    {serviceTypes.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({formatCop(s.price)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="modal-employee" className="block text-[13px] font-semibold">
+                    Especialista
+                  </label>
+                  <select
+                    id="modal-employee"
+                    value={form.employeeId}
+                    onChange={(e) => setForm((p) => ({ ...p, employeeId: e.target.value }))}
+                    className="h-[44px] w-full rounded-xl border border-[#E4E6F2] bg-white px-3 text-sm"
+                    required
+                  >
+                    <option value="">Selecciona especialista...</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <Input
+                id="modal-datetime"
+                label="Fecha y hora (7:00–12:00 o 14:30–21:00)"
+                type="datetime-local"
+                value={form.dateTime}
+                onChange={(e) => setForm((p) => ({ ...p, dateTime: e.target.value }))}
+                error={
+                  form.dateTime && !isWithinOperatingHours(form.dateTime)
+                    ? 'Franja bloqueada. Solo atendemos de 7:00 a. m.–12:00 p. m. y 2:30 p. m.–9:00 p. m.'
+                    : ''
+                }
+                required
+              />
+
+              <div className="flex justify-end gap-2.5 pt-2">
+                <Button variant="ghost" onClick={() => setShowCreateModal(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" loading={submitting}>
+                  Guardar cita
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Confirmación Pago 100% en Efectivo al Entregar */}
+      {deliverConfirmTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1E1B4B]/45 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl border border-[#E4E6F2] bg-white p-6 shadow-2xl">
+            <h2 className="text-[18px] font-bold text-[#1E1B4B]">
+              Confirmar entrega y pago en efectivo
+            </h2>
+            <p className="mt-2 text-[14px] text-[#5B5F7A]">
+              Confirma que recibiste el pago 100% en efectivo por{' '}
+              <strong className="text-[#1E1B4B]">
+                {formatCop(serviceById.get(deliverConfirmTarget.serviceTypeId)?.price || 0)}
+              </strong>{' '}
+              del vehículo{' '}
+              <strong className="font-mono text-[#1E1B4B]">
+                {deliverConfirmTarget.vehiclePlate}
+              </strong>{' '}
+              ({deliverConfirmTarget.customerName}).
+            </p>
+            <div className="mt-6 flex justify-end gap-2.5">
+              <Button variant="ghost" onClick={() => setDeliverConfirmTarget(null)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleConfirmDelivery}>Confirmar efectivo y entregar</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </MainLayout>
   )
 }

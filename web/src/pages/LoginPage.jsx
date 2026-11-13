@@ -9,8 +9,7 @@ import { getHomeRouteByRole } from '../utils/authRedirect'
 const GOOGLE_AUTH_URL = `${BACKEND_BASE_URL}/oauth2/authorization/google`
 
 /**
- * Pantalla de acceso que autentica contra POST /api/auth/login,
- * persiste el JWT y redirige según el rol (ADMIN -> /dashboard, CLIENTE -> /portal/dashboard).
+ * Pantalla de acceso dividida (Desktop) / Mobile-first para Admin y Clientes.
  */
 export function LoginPage() {
   const { isAuthenticated, user, login } = useAuth()
@@ -18,6 +17,7 @@ export function LoginPage() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -45,7 +45,7 @@ export function LoginPage() {
       } else if (error.response?.status === 401 || error.response?.status === 403) {
         setErrorMessage('Credenciales inválidas. Verifica tu correo y contraseña.')
       } else {
-        setErrorMessage('No fue posible conectar con el servidor. Verifica que el backend esté activo.')
+        setErrorMessage('No fue posible conectar con el servidor. Verifica que el servicio esté activo.')
       }
     } finally {
       setSubmitting(false)
@@ -53,92 +53,133 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-sky-900 px-4 py-12">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl ring-1 ring-slate-200">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-sky-600 text-lg font-bold text-white shadow-sm">
+    <div className="min-h-screen bg-[#F5F6FB] lg:grid lg:grid-cols-12">
+      {/* Panel izquierdo Índigo oscuro (Desktop) + Header gradiente (Móvil) */}
+      <div className="flex flex-col justify-between bg-gradient-to-br from-[#1E1B4B] via-[#312E81] to-[#4F46E5] px-6 py-8 text-white lg:col-span-5 lg:p-12">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-base font-bold">
             AC
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">AutoClean</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Inicia sesión para acceder a tu cuenta
+          <span className="text-lg font-bold tracking-tight">AutoClean</span>
+        </div>
+
+        <div className="my-6 space-y-4 lg:my-0">
+          <span className="inline-flex rounded-full bg-[#8B5CF6]/30 px-3 py-1 text-xs font-semibold text-indigo-100">
+            Lavado y Detailing Premium
+          </span>
+          <h1 className="text-[28px] leading-[34px] font-bold tracking-tight lg:text-4xl lg:leading-tight">
+            Tu vehículo impecable, con seguimiento en tiempo real.
+          </h1>
+          <p className="text-[15px] text-indigo-100/90">
+            Agenda en menos de un minuto con tu placa, revisa el avance de tu servicio en vivo y paga en efectivo al finalizar.
           </p>
         </div>
 
-        {errorMessage && (
-          <div
-            role="alert"
-            className="mb-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
-          >
-            {errorMessage}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-          <Input
-            id="email"
-            label="Correo electrónico"
-            type="email"
-            autoComplete="email"
-            placeholder="correo@autoclean.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-
-          <Input
-            id="password"
-            label="Contraseña"
-            type="password"
-            autoComplete="current-password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-
-          <Button type="submit" loading={submitting} className="w-full">
-            Ingresar
-          </Button>
-        </form>
-
-        <div className="my-5 flex items-center gap-3">
-          <div className="h-px flex-1 bg-slate-200" />
-          <span className="text-xs font-medium text-slate-400 uppercase">o</span>
-          <div className="h-px flex-1 bg-slate-200" />
-        </div>
-
-        <a
-          href={GOOGLE_AUTH_URL}
-          className="inline-flex w-full items-center justify-center gap-2.5 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 transition-colors hover:bg-slate-50"
-        >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              fill="#4285F4"
-              d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"
-            />
-            <path
-              fill="#34A853"
-              d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"
-            />
-            <path
-              fill="#FBBC05"
-              d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"
-            />
-            <path
-              fill="#EA4335"
-              d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"
-            />
-          </svg>
-          Continuar con Google
-        </a>
-
-        <p className="mt-6 text-center text-sm text-slate-600">
-          ¿Aún no tienes cuenta?{' '}
-          <Link to="/register" className="font-semibold text-sky-600 hover:text-sky-700">
-            Regístrate aquí
-          </Link>
+        <p className="hidden text-[13px] text-indigo-200 lg:block">
+          Horario de atención: 7:00 a. m. – 12:00 p. m. y 2:30 p. m. – 9:00 p. m.
         </p>
+      </div>
+
+      {/* Formulario derecho */}
+      <div className="flex items-center justify-center px-4 py-8 sm:px-8 lg:col-span-7">
+        <div className="w-full max-w-[440px] rounded-2xl border border-[#E4E6F2] bg-white p-6 shadow-card sm:p-8">
+          <div className="mb-6">
+            <h2 className="text-[22px] font-semibold text-[#1E1B4B]">Inicia sesión</h2>
+            <p className="mt-1 text-[14px] text-[#5B5F7A]">
+              Ingresa a tu cuenta de AutoClean para continuar
+            </p>
+          </div>
+
+          {errorMessage && (
+            <div
+              role="alert"
+              className="mb-5 rounded-xl border border-[#FECACA] bg-[#FEE2E2] px-4 py-3 text-sm font-medium text-[#B91C1C]"
+            >
+              {errorMessage}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            <Input
+              id="email"
+              label="Correo electrónico"
+              type="email"
+              size="l"
+              autoComplete="email"
+              placeholder="correo@autoclean.co"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+
+            <div className="space-y-1.5">
+              <label htmlFor="password" className="block text-[13px] font-semibold text-[#1E1B4B]">
+                Contraseña
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="block h-[52px] w-full rounded-xl border border-[#E4E6F2] bg-white pl-3.5 pr-20 text-[15px] text-[#1E1B4B] placeholder-[#5B5F7A]/60 transition hover:border-[#8B5CF6]/50 focus:border-[#4F46E5] focus:ring-4 focus:ring-[#4F46E5]/15 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs font-semibold text-[#4F46E5] hover:bg-[#EDE9FE]/60"
+                >
+                  {showPassword ? 'Ocultar' : 'Mostrar'}
+                </button>
+              </div>
+            </div>
+
+            <Button type="submit" size="l" loading={submitting} className="w-full shadow-float">
+              Ingresar
+            </Button>
+          </form>
+
+          <div className="my-5 flex items-center gap-3">
+            <span className="h-px flex-1 bg-[#E4E6F2]" />
+            <span className="text-xs font-medium text-[#5B5F7A]">o continúa con</span>
+            <span className="h-px flex-1 bg-[#E4E6F2]" />
+          </div>
+
+          <a
+            href={GOOGLE_AUTH_URL}
+            className="inline-flex h-[52px] w-full items-center justify-center gap-2.5 rounded-xl border border-[#E4E6F2] bg-white px-4 text-[15px] font-semibold text-[#1E1B4B] transition hover:bg-[#F5F6FB]"
+          >
+            <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="#4285F4"
+                d="M21.8 12.23c0-.68-.06-1.36-.18-2.02H12v3.83h5.5a4.7 4.7 0 0 1-2.04 3.08v2.56h3.3c1.93-1.78 3.04-4.4 3.04-7.45Z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 22c2.76 0 5.08-.91 6.77-2.47l-3.3-2.56c-.91.61-2.08.98-3.47.98-2.67 0-4.93-1.8-5.74-4.22H2.85v2.64A10 10 0 0 0 12 22Z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M6.26 13.73A6.01 6.01 0 0 1 5.95 12c0-.6.11-1.18.31-1.73V7.63H2.85A10 10 0 0 0 2 12c0 1.61.39 3.14 1.07 4.37l3.19-2.64Z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 6.05c1.5 0 2.85.52 3.91 1.53l2.93-2.93C17.07 3 14.76 2 12 2A10 10 0 0 0 2.85 7.63l3.41 2.64C7.07 7.85 9.33 6.05 12 6.05Z"
+              />
+            </svg>
+            Continuar con Google
+          </a>
+
+          <p className="mt-6 text-center text-[14px] text-[#5B5F7A]">
+            ¿Aún no tienes cuenta?{' '}
+            <Link to="/register" className="font-semibold text-[#4F46E5] hover:text-[#4338CA]">
+              Regístrate aquí
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   )

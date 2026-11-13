@@ -1,1 +1,27 @@
 @import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --color-indigo-950: #1E1B4B;
+  --color-indigo-900: #312E81;
+  --color-brand-600: #4F46E5;
+  --color-brand-700: #4338CA;
+  --color-accent-500: #8B5CF6;
+  --color-surface-canvas: #F5F6FB;
+  --color-border-subtle: #E4E6F2;
+  --color-ink-secondary: #5B5F7A;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #F5F6FB;
+  color: #1E1B4B;
+}
+
+.shadow-card {
+  box-shadow: 0 1px 2px rgba(30, 27, 75, 0.04), 0 8px 24px -4px rgba(30, 27, 75, 0.06);
+}
+
+.shadow-float {
+  box-shadow: 0 12px 32px -4px rgba(79, 70, 229, 0.28);
+}

@@ -1,17 +1,19 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { getApiErrorMessage } from '../services/api'
+import { showToast } from '../utils/toast'
 import { Button } from './Button'
 import { Input } from './Input'
 
 const PHONE_REGEX = /^[+]?[0-9\s\-()]{7,20}$/
 
 /**
- * Tarjeta interactiva para completar nombre y teléfono cuando una cuenta CLIENTE
- * (por ejemplo, ingresada con Google) aún no tiene perfil vinculado en clientes.
+ * Banner discreto para completar nombre y teléfono cuando una cuenta CLIENTE
+ * aún no tiene perfil vinculado tras ingresar con Google.
  */
 export function CompleteCustomerProfileCard({ onCompleted }) {
   const { user, completeProfile } = useAuth()
+  const [expanded, setExpanded] = useState(false)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
@@ -32,64 +34,81 @@ export function CompleteCustomerProfileCard({ onCompleted }) {
     setSubmitting(true)
     try {
       const updatedSession = await completeProfile({ name: cleanName, phone: cleanPhone })
+      showToast({
+        type: 'success',
+        title: 'Perfil activado',
+        description: 'Ya puedes registrar vehículos y agendar citas.',
+      })
       if (onCompleted) {
         onCompleted(updatedSession)
       }
     } catch (error) {
-      setErrorMessage(getApiErrorMessage(error, 'No fue posible guardar tu perfil de cliente.'))
+      setErrorMessage(getApiErrorMessage(error, 'No fue posible guardar tu perfil.'))
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <section className="rounded-2xl border border-amber-200 bg-amber-50/70 p-6 shadow-sm">
-      <div className="mb-4">
-        <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
-          Paso único de activación
-        </span>
-        <h3 className="mt-2 text-lg font-bold text-slate-900">
-          Completa tu perfil para registrar vehículos y agendar citas
-        </h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Vincula tus datos de contacto a <span className="font-semibold text-slate-900">{user?.email}</span> para
-          habilitar todos los servicios del portal.
-        </p>
+    <section className="rounded-2xl border border-[#E4E6F2] bg-white p-4 shadow-card sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EDE9FE] text-sm font-bold text-[#4F46E5]">
+            ✦
+          </span>
+          <div>
+            <p className="text-[14px] font-semibold text-[#1E1B4B]">Completa tu perfil de cliente</p>
+            <p className="text-[13px] text-[#5B5F7A]">
+              Agrega nombre y teléfono para {user?.email} y habilita reservas en segundos.
+            </p>
+          </div>
+        </div>
+        {!expanded && (
+          <Button variant="secondary" onClick={() => setExpanded(true)}>
+            Completar perfil
+          </Button>
+        )}
       </div>
 
-      {errorMessage && (
-        <div
-          role="alert"
-          className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
-        >
-          {errorMessage}
-        </div>
-      )}
+      {expanded && (
+        <form onSubmit={handleSubmit} className="mt-4 space-y-3 border-t border-[#E4E6F2] pt-4">
+          {errorMessage && (
+            <div
+              role="alert"
+              className="rounded-xl border border-[#FECACA] bg-[#FEE2E2] px-3.5 py-2.5 text-xs font-medium text-[#B91C1C]"
+            >
+              {errorMessage}
+            </div>
+          )}
 
-      <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-3">
-        <Input
-          id="profileName"
-          label="Nombre completo"
-          placeholder="Esteban Ramírez"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-        />
-        <Input
-          id="profilePhone"
-          label="Teléfono de contacto"
-          placeholder="+57 300 123 4567"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          required
-        />
-        <div className="flex items-end">
-          <Button type="submit" loading={submitting} className="w-full">
-            Activar mi perfil
-          </Button>
-        </div>
-      </form>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Input
+              id="profileName"
+              label="Nombre completo"
+              placeholder="Camila Restrepo"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+            <Input
+              id="profilePhone"
+              label="Teléfono"
+              placeholder="+57 310 458 9210"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+            />
+            <div className="flex items-end gap-2">
+              <Button type="button" variant="ghost" onClick={() => setExpanded(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" loading={submitting} className="flex-1">
+                Guardar
+              </Button>
+            </div>
+          </div>
+        </form>
+      )}
     </section>
   )
 }
-
