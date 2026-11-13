@@ -9,12 +9,15 @@ import com.autoclean.model.Customer;
 import com.autoclean.model.Employee;
 import com.autoclean.model.ServiceType;
 import com.autoclean.model.Vehicle;
+import com.autoclean.model.VehicleStatus;
 import com.autoclean.repository.AppointmentRepository;
 import com.autoclean.repository.CustomerRepository;
 import com.autoclean.repository.EmployeeRepository;
 import com.autoclean.repository.ServiceTypeRepository;
 import com.autoclean.repository.VehicleRepository;
 import com.autoclean.service.AppointmentService;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +32,11 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class AppointmentServiceImpl implements AppointmentService {
+
+    private static final LocalTime MORNING_START = LocalTime.of(7, 0);
+    private static final LocalTime MORNING_END = LocalTime.of(12, 0);
+    private static final LocalTime AFTERNOON_START = LocalTime.of(14, 30);
+    private static final LocalTime AFTERNOON_END = LocalTime.of(21, 0);
 
     // Tabla de transiciones permitidas (OCP: facilita extender reglas sin reescribir condicionales)
     private static final Map<AppointmentStatus, Set<AppointmentStatus>> ALLOWED_TRANSITIONS = Map.of(
@@ -76,6 +84,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         if (request == null) {
             throw new IllegalArgumentException("El turno no puede ser nulo");
         }
+        validateOperatingHours(request.dateTime());
 
         ResolvedReferences refs = resolveReferences(request);
         // Regla legacy (AppointmentServiceImpl.java:39-41): estado por defecto PENDING
@@ -191,6 +200,54 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         appointment.setStatus(newStatus);
         return AppointmentResponseDto.from(appointmentRepository.save(appointment));
+    }
+
+    @Override
+    @Transactional
+    public AppointmentResponseDto cancel(UUID appointmentId) {
+        if (appointmentId == null) {
+            throw new IllegalArgumentException("El identificador del turno no puede estar vacío");
+        }
+
+        Appointment appointment = findExistingForMutation(appointmentId);
+        AppointmentStatus currentStatus = appointment.getStatus() != null
+                ? appointment.getStatus()
+                : AppointmentStatus.PENDING;
+
+        if (currentStatus != AppointmentStatus.PENDING) {
+            throw new IllegalStateException(
+                    "Solo se pueden cancelar citas en estado PENDING; estado actual: " + currentStatus);
+        }
+
+        appointment.setStatus(AppointmentStatus.CANCELLED);
+        return AppointmentResponseDto.from(appointmentRepository.save(appointment));
+    }
+
+    @Override
+    @Transactional
+    public AppointmentResponseDto updateVehicleStatus(UUID appointmentId, VehicleStatus vehicleStatus) {
+        if (appointmentId == null) {
+            throw new IllegalArgumentException("El identificador del turno no puede estar vacío");
+        }
+        if (vehicleStatus == null) {
+            throw new IllegalArgumentException("El estado del vehículo no puede estar vacío");
+        }
+
+        Appointment appointment = findExistingForMutation(appointmentId);
+        appointment.setVehicleStatus(vehicleStatus);
+        return AppointmentResponseDto.from(appointmentRepository.save(appointment));
+    }
+
+    private void validateOperatingHours(OffsetDateTime dateTime) {
+        if (dateTime == null) {
+            throw new IllegalArgumentException("La fecha y hora de la cita no pueden ser nulas");
+        }
+        LocalTime time = dateTime.toLocalTime();
+        boolean inMorningWindow = !time.isBefore(MORNING_START) && !time.isAfter(MORNING_END);
+        boolean inAfternoonWindow = !time.isBefore(AFTERNOON_START) && !time.isAfter(AFTERNOON_END);
+        if (!inMorningWindow && !inAfternoonWindow) {
+            throw new IllegalArgumentException("Horario de atención: 7am-12pm y 2:30pm-9pm");
+        }
     }
 
     private Appointment findExistingForMutation(UUID id) {

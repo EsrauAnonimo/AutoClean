@@ -16,7 +16,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.autoclean.dto.appointment.AppointmentRequestDto;
 import com.autoclean.dto.appointment.AppointmentResponseDto;
 import com.autoclean.dto.appointment.AppointmentStatusUpdateDto;
+import com.autoclean.dto.appointment.VehicleStatusUpdateDto;
 import com.autoclean.model.AppointmentStatus;
+import com.autoclean.model.VehicleStatus;
 import com.autoclean.service.AppointmentService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
@@ -181,6 +183,50 @@ class AppointmentControllerTest {
 
         mockMvc.perform(delete("/api/appointments/{id}", id))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/appointments/{id}/cancel debe cancelar cita PENDING con 200 OK y retornar 409 si no es PENDING")
+    void shouldCancelAppointmentAndRejectNonPending() throws Exception {
+        UUID id = UUID.randomUUID();
+        AppointmentResponseDto cancelled = sampleDto(id, AppointmentStatus.CANCELLED);
+        when(appointmentService.cancel(id)).thenReturn(cancelled);
+
+        mockMvc.perform(patch("/api/appointments/{id}/cancel", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+
+        when(appointmentService.cancel(id))
+                .thenThrow(new IllegalStateException("Solo se pueden cancelar citas en estado PENDING"));
+
+        mockMvc.perform(patch("/api/appointments/{id}/cancel", id))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/appointments/{id}/vehicle-status debe actualizar estado del vehículo y validar nulos")
+    void shouldUpdateVehicleStatusWithPatch() throws Exception {
+        UUID id = UUID.randomUUID();
+        OffsetDateTime now = OffsetDateTime.now();
+        AppointmentResponseDto updated = new AppointmentResponseDto(
+                id, UUID.randomUUID(), "Juan Pérez", UUID.randomUUID(), "ABC123",
+                UUID.randomUUID(), "Carlos López", UUID.randomUUID(), "Lavado Full",
+                now.plusDays(1), AppointmentStatus.IN_PROGRESS, VehicleStatus.DETAILING, now, now
+        );
+        when(appointmentService.updateVehicleStatus(id, VehicleStatus.DETAILING)).thenReturn(updated);
+
+        mockMvc.perform(patch("/api/appointments/{id}/vehicle-status", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new VehicleStatusUpdateDto(VehicleStatus.DETAILING))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.vehicleStatus").value("DETAILING"));
+
+        mockMvc.perform(patch("/api/appointments/{id}/vehicle-status", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"vehicleStatus\": null}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
     }
 
     private AppointmentResponseDto sampleDto(UUID id, AppointmentStatus status) {

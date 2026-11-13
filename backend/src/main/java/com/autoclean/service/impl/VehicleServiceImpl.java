@@ -2,6 +2,7 @@ package com.autoclean.service.impl;
 
 import com.autoclean.dto.vehicle.VehicleRequest;
 import com.autoclean.dto.vehicle.VehicleResponse;
+import com.autoclean.exception.ResourceNotFoundException;
 import com.autoclean.model.Customer;
 import com.autoclean.model.Vehicle;
 import com.autoclean.repository.CustomerRepository;
@@ -101,6 +102,19 @@ public class VehicleServiceImpl implements VehicleService {
         return vehicleRepository.findByCustomerId(customerId).stream()
                 .map(VehicleResponse::from)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public VehicleResponse findByPlate(String plate) {
+        if (plate == null || plate.isBlank()) {
+            throw new IllegalArgumentException("La placa no puede estar vacía");
+        }
+        String normalizedPlate = plate.trim().toUpperCase();
+        Vehicle vehicle = vehicleRepository.findByPlateIgnoreCase(normalizedPlate)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No se encontró un vehículo con la placa: " + normalizedPlate));
+        return VehicleResponse.from(vehicle);
     }
 
     private Vehicle findExisting(UUID id) {

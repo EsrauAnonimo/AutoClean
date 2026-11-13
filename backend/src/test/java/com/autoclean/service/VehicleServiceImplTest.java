@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.autoclean.dto.vehicle.VehicleRequest;
 import com.autoclean.dto.vehicle.VehicleResponse;
+import com.autoclean.exception.ResourceNotFoundException;
 import com.autoclean.model.Customer;
 import com.autoclean.model.Vehicle;
 import com.autoclean.repository.CustomerRepository;
@@ -134,5 +135,22 @@ class VehicleServiceImplTest {
         assertEquals("DEF456", byCustomer.get(0).plate());
         assertEquals(1, service.findAll().size());
         assertThrows(IllegalArgumentException.class, () -> service.findByCustomerId(null));
+    }
+
+    @Test
+    void shouldFindVehicleByPlateIgnoringCaseOrThrow() {
+        Customer customer = new Customer("Carlos", "3104589210", "carlos@autoclean.com");
+        customer.setId(UUID.randomUUID());
+        Vehicle vehicle = new Vehicle(customer, "ABC123", "Mazda", "3", 2023);
+        vehicle.setId(UUID.randomUUID());
+
+        when(vehicleRepository.findByPlateIgnoreCase("ABC123")).thenReturn(Optional.of(vehicle));
+        when(vehicleRepository.findByPlateIgnoreCase("ZZZ999")).thenReturn(Optional.empty());
+
+        VehicleResponse found = service.findByPlate(" abc123 ");
+        assertEquals("ABC123", found.plate());
+
+        assertThrows(IllegalArgumentException.class, () -> service.findByPlate("   "));
+        assertThrows(ResourceNotFoundException.class, () -> service.findByPlate("zzz999"));
     }
 }

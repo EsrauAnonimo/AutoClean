@@ -3,6 +3,7 @@ package com.autoclean.service;
 import com.autoclean.dto.appointment.AppointmentRequestDto;
 import com.autoclean.dto.appointment.AppointmentResponseDto;
 import com.autoclean.model.AppointmentStatus;
+import com.autoclean.model.VehicleStatus;
 import java.util.List;
 import java.util.UUID;
 
@@ -74,5 +75,22 @@ public interface AppointmentService {
      * @return cita actualizada con el nuevo estado
      */
     AppointmentResponseDto updateStatus(UUID appointmentId, AppointmentStatus newStatus);
+
+    /**
+     * Cancela una cita por iniciativa del cliente; únicamente permitido si está en estado PENDING.
+     *
+     * @param appointmentId identificador de la cita
+     * @return cita actualizada en estado CANCELLED
+     */
+    AppointmentResponseDto cancel(UUID appointmentId);
+
+    /**
+     * Actualiza el estado operativo en tiempo real del vehículo en la cita.
+     *
+     * @param appointmentId identificador de la cita
+     * @param vehicleStatus nuevo estado del vehículo
+     * @return cita actualizada con el estado del vehículo
+     */
+    AppointmentResponseDto updateVehicleStatus(UUID appointmentId, VehicleStatus vehicleStatus);
 }
 

@@ -3,6 +3,7 @@ package com.autoclean.controller;
 import com.autoclean.dto.appointment.AppointmentRequestDto;
 import com.autoclean.dto.appointment.AppointmentResponseDto;
 import com.autoclean.dto.appointment.AppointmentStatusUpdateDto;
+import com.autoclean.dto.appointment.VehicleStatusUpdateDto;
 import com.autoclean.model.AppointmentStatus;
 import com.autoclean.service.AppointmentService;
 import jakarta.validation.Valid;
@@ -79,6 +80,18 @@ public class AppointmentController {
             @PathVariable UUID id,
             @Valid @RequestBody AppointmentStatusUpdateDto request) {
         return ResponseEntity.ok(appointmentService.updateStatus(id, request.status()));
+    }
+
+    @PatchMapping("/{id}/cancel")
+    public ResponseEntity<AppointmentResponseDto> cancel(@PathVariable UUID id) {
+        return ResponseEntity.ok(appointmentService.cancel(id));
+    }
+
+    @PatchMapping("/{id}/vehicle-status")
+    public ResponseEntity<AppointmentResponseDto> updateVehicleStatus(
+            @PathVariable UUID id,
+            @Valid @RequestBody VehicleStatusUpdateDto request) {
+        return ResponseEntity.ok(appointmentService.updateVehicleStatus(id, request.vehicleStatus()));
     }
 
     @DeleteMapping("/{id}")

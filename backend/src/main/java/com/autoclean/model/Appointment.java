@@ -52,6 +52,10 @@ public class Appointment {
     @Column(name = "estado", nullable = false)
     private AppointmentStatus status = AppointmentStatus.PENDING;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado_vehiculo", nullable = false)
+    private VehicleStatus vehicleStatus = VehicleStatus.RECEIVED;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -127,6 +131,14 @@ public class Appointment {
 
     public void setStatus(AppointmentStatus status) {
         this.status = ModelValidations.requireNonNull(status, "El estado de la cita no puede ser nulo");
+    }
+
+    public VehicleStatus getVehicleStatus() {
+        return vehicleStatus;
+    }
+
+    public void setVehicleStatus(VehicleStatus vehicleStatus) {
+        this.vehicleStatus = ModelValidations.requireNonNull(vehicleStatus, "El estado del vehículo no puede ser nulo");
     }
 
     public OffsetDateTime getCreatedAt() {
