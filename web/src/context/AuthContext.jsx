@@ -80,6 +80,15 @@ export function AuthProvider({ children }) {
     [persistSession],
   )
 
+  const completeProfile = useCallback(
+    async (payload) => {
+      const data = await authService.completeProfile(payload)
+      persistSession(data)
+      return data
+    },
+    [persistSession],
+  )
+
   const loginWithToken = useCallback(
     (rawToken) => {
       const claims = parseJwtPayload(rawToken)
@@ -123,10 +132,11 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(token),
       login,
       register,
+      completeProfile,
       loginWithToken,
       logout,
     }),
-    [token, user, login, register, loginWithToken, logout],
+    [token, user, login, register, completeProfile, loginWithToken, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
