@@ -6,6 +6,7 @@ import { CatalogPage } from './pages/CatalogPage'
 import { CustomersPage } from './pages/CustomersPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
+import { MyVehiclesPage } from './pages/MyVehiclesPage'
 import { OAuth2RedirectPage } from './pages/OAuth2RedirectPage'
 import { PortalDashboardPage } from './pages/PortalDashboardPage'
 import { RegisterPage } from './pages/RegisterPage'
@@ -100,6 +101,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={CLIENT_ROLES}>
                 <PortalDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/portal/mis-vehiculos"
+            element={
+              <ProtectedRoute allowedRoles={CLIENT_ROLES}>
+                <MyVehiclesPage />
               </ProtectedRoute>
             }
           />
