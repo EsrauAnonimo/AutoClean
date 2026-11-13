@@ -56,7 +56,7 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F6FB] lg:grid lg:grid-cols-2">
-      <AuthHeroPanel headline="Tu auto, siempre impecable." />
+      <AuthHeroPanel />
 
       <div className="flex min-h-screen flex-col items-center justify-center bg-[#F5F6FB] px-6 py-10">
         <div className="mb-8 lg:hidden">
