@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getHomeRouteByRole } from '../utils/authRedirect'
 import { showToast } from '../utils/toast'
+import { AutoCleanLogo } from './AutoCleanLogo'
 
 const ADMIN_NAV_ITEMS = [
   { to: '/dashboard', label: 'Panel principal', icon: 'grid' },
@@ -117,17 +118,12 @@ export function MainLayout({ children }) {
         <Link
           to={homeRoute}
           onClick={() => setMobileMenuOpen(false)}
-          className="flex items-center gap-3 rounded-xl px-2 py-2 transition hover:bg-[#312E81]/60"
+          className="flex items-center rounded-xl px-2 py-2 transition hover:bg-[#312E81]/60"
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#4F46E5] to-[#8B5CF6] text-sm font-bold text-white shadow-sm">
-            AC
-          </div>
-          <div>
-            <p className="text-[16px] font-bold tracking-tight text-white">AutoClean</p>
-            <p className="text-[11px] font-medium text-indigo-300">
-              {isClient ? 'Portal del Cliente' : 'Panel Operativo'}
-            </p>
-          </div>
+          <AutoCleanLogo
+            size="md"
+            subtitle={isClient ? 'Portal del Cliente' : 'Panel Operativo'}
+          />
         </Link>
 
         <nav aria-label="Navegación principal" className="mt-6 space-y-1">
@@ -202,15 +198,9 @@ export function MainLayout({ children }) {
         {isClient ? (
           <header className="bg-gradient-to-br from-[#1E1B4B] via-[#312E81] to-[#4F46E5] px-4 py-4 text-white lg:border-b lg:border-[#E4E6F2] lg:bg-white lg:bg-none lg:px-8 lg:text-[#1E1B4B]">
             <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-              <div className="flex items-center gap-3 lg:hidden">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 text-sm font-bold text-white">
-                  AC
-                </div>
-                <div>
-                  <p className="text-[15px] font-bold leading-tight">AutoClean</p>
-                  <p className="text-[11px] text-indigo-200">Portal del Cliente</p>
-                </div>
-              </div>
+              <Link to={homeRoute} className="lg:hidden">
+                <AutoCleanLogo size="sm" subtitle="Portal del Cliente" />
+              </Link>
 
               <div className="hidden lg:block">
                 <p className="text-[15px] font-semibold text-[#1E1B4B]">Tu espacio AutoClean</p>

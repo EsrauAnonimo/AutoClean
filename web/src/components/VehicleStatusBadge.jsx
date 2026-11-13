@@ -29,3 +29,4 @@ export function VehicleStatusBadge({ status, prefix = '' }) {
     </span>
   )
 }
+

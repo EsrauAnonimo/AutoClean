@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { AutoCleanLogo } from '../components/AutoCleanLogo'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { useAuth } from '../context/AuthContext'
@@ -74,12 +75,7 @@ export function RegisterPage() {
   return (
     <div className="min-h-screen bg-[#F5F6FB] lg:grid lg:grid-cols-12">
       <div className="flex flex-col justify-between bg-gradient-to-br from-[#1E1B4B] via-[#312E81] to-[#4F46E5] px-6 py-8 text-white lg:col-span-5 lg:p-12">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-base font-bold">
-            AC
-          </div>
-          <span className="text-lg font-bold">AutoClean</span>
-        </div>
+        <AutoCleanLogo size="lg" subtitle="Portal de Clientes" />
         <div className="my-6 space-y-3 lg:my-0">
           <h1 className="text-[28px] leading-[34px] font-bold">Crea tu cuenta de cliente</h1>
           <p className="text-[15px] text-indigo-100/90">
