@@ -1,24 +1,57 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '../components/Button'
+import { Input } from '../components/Input'
 import { MainLayout } from '../components/MainLayout'
 import { useAuth } from '../context/AuthContext'
 import { getApiErrorMessage } from '../services/api'
 import { createAppointment } from '../services/appointmentService'
 import { getEmployees, getServiceTypes } from '../services/catalogService'
-import { getVehiclesByCustomer } from '../services/vehicleService'
+import { getVehicleByPlate } from '../services/vehicleService'
 
 const INITIAL_FORM = {
-  vehicleId: '',
+  plate: '',
   serviceTypeId: '',
   employeeId: '',
   dateTime: '',
 }
 
+const MORNING_START_MINUTES = 7 * 60
+const MORNING_END_MINUTES = 12 * 60
+const AFTERNOON_START_MINUTES = 14 * 60 + 30
+const AFTERNOON_END_MINUTES = 21 * 60
+
 function getLocalDateTimeMin() {
   const now = new Date()
   const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
   return local.toISOString().slice(0, 16)
+}
+
+function validateAppointmentDateTime(value) {
+  if (!value) {
+    return 'Selecciona la fecha y hora de tu cita.'
+  }
+
+  const parsedDate = new Date(value)
+  if (Number.isNaN(parsedDate.getTime())) {
+    return 'La fecha y hora seleccionadas no son válidas.'
+  }
+
+  if (parsedDate.getTime() < Date.now()) {
+    return 'No puedes agendar una cita en una fecha u hora pasada.'
+  }
+
+  const totalMinutes = parsedDate.getHours() * 60 + parsedDate.getMinutes()
+  const inMorningShift =
+    totalMinutes >= MORNING_START_MINUTES && totalMinutes <= MORNING_END_MINUTES
+  const inAfternoonShift =
+    totalMinutes >= AFTERNOON_START_MINUTES && totalMinutes <= AFTERNOON_END_MINUTES
+
+  if (!inMorningShift && !inAfternoonShift) {
+    return 'Horario fuera de atención. Solo atendemos de 7:00 a. m. a 12:00 p. m. y de 2:30 p. m. a 9:00 p. m.'
+  }
+
+  return ''
 }
 
 function formatPrice(value) {
@@ -43,17 +76,21 @@ function formatAppointmentDateTime(value) {
 
 /**
  * Pantalla "Agendar Cita" del Portal de Clientes (/portal/agendar).
- * Aplica la regla Opción A: cada cita vincula 1 vehículo, 1 tipo de servicio, 1 empleado y fecha/hora.
+ * Busca el vehículo por placa, aplica franjas horarias estrictas e informa pago en efectivo.
  */
 export function BookAppointmentPage() {
   const { user } = useAuth()
   const customerId = user?.customerId ?? null
 
   const [serviceTypes, setServiceTypes] = useState([])
-  const [vehicles, setVehicles] = useState([])
   const [employees, setEmployees] = useState([])
 
   const [form, setForm] = useState(INITIAL_FORM)
+  const [resolvedVehicle, setResolvedVehicle] = useState(null)
+  const [searchingVehicle, setSearchingVehicle] = useState(false)
+  const [plateError, setPlateError] = useState('')
+  const [timeError, setTimeError] = useState('')
+
   const [minDateTime] = useState(() => getLocalDateTimeMin())
   const [loading, setLoading] = useState(Boolean(customerId))
   const [submitting, setSubmitting] = useState(false)
@@ -66,21 +103,16 @@ export function BookAppointmentPage() {
     }
     let active = true
 
-    Promise.all([
-      getServiceTypes(),
-      getVehiclesByCustomer(customerId),
-      getEmployees(),
-    ])
-      .then(([serviceList, vehicleList, employeeList]) => {
+    Promise.all([getServiceTypes(), getEmployees()])
+      .then(([serviceList, employeeList]) => {
         if (!active) return
         setServiceTypes(Array.isArray(serviceList) ? serviceList : [])
-        setVehicles(Array.isArray(vehicleList) ? vehicleList : [])
         setEmployees(Array.isArray(employeeList) ? employeeList : [])
       })
       .catch((error) => {
         if (active) {
           setErrorMessage(
-            getApiErrorMessage(error, 'No fue posible cargar la información para agendar tu cita.'),
+            getApiErrorMessage(error, 'No fue posible cargar el catálogo para agendar tu cita.'),
           )
         }
       })
@@ -100,12 +132,60 @@ export function BookAppointmentPage() {
     [serviceTypes, form.serviceTypeId],
   )
 
+  const handlePlateChange = (event) => {
+    const nextPlate = event.target.value.toUpperCase()
+    setForm((prev) => ({ ...prev, plate: nextPlate }))
+    setPlateError('')
+    setErrorMessage('')
+    if (resolvedVehicle && resolvedVehicle.plate !== nextPlate.trim()) {
+      setResolvedVehicle(null)
+    }
+  }
+
+  const handleDateTimeChange = (event) => {
+    const nextValue = event.target.value
+    setForm((prev) => ({ ...prev, dateTime: nextValue }))
+    setErrorMessage('')
+    setTimeError(nextValue ? validateAppointmentDateTime(nextValue) : '')
+  }
+
   const handleFieldChange = (field) => (event) => {
     const value = event.target.value
     setForm((prev) => ({ ...prev, [field]: value }))
     if (errorMessage) {
       setErrorMessage('')
     }
+  }
+
+  const lookupVehicleByPlate = async (rawPlate) => {
+    const normalizedPlate = rawPlate.trim().toUpperCase()
+    if (!normalizedPlate) {
+      setPlateError('Ingresa la placa del vehículo.')
+      return null
+    }
+
+    setSearchingVehicle(true)
+    setPlateError('')
+    try {
+      const vehicle = await getVehicleByPlate(normalizedPlate)
+      setResolvedVehicle(vehicle)
+      return vehicle
+    } catch (error) {
+      setResolvedVehicle(null)
+      setPlateError(
+        getApiErrorMessage(
+          error,
+          `No encontramos un vehículo registrado con la placa ${normalizedPlate}.`,
+        ),
+      )
+      return null
+    } finally {
+      setSearchingVehicle(false)
+    }
+  }
+
+  const handleSearchPlateClick = async () => {
+    await lookupVehicleByPlate(form.plate)
   }
 
   const handleSubmit = async (event) => {
@@ -117,28 +197,47 @@ export function BookAppointmentPage() {
     setErrorMessage('')
     setCreatedAppointment(null)
 
-    if (!form.vehicleId || !form.serviceTypeId || !form.employeeId || !form.dateTime) {
-      setErrorMessage('Selecciona vehículo, servicio, especialista y fecha/hora para confirmar la cita.')
+    const normalizedPlate = form.plate.trim().toUpperCase()
+    if (!normalizedPlate) {
+      setPlateError('Ingresa la placa de tu vehículo.')
+      return
+    }
+
+    const scheduleValidationError = validateAppointmentDateTime(form.dateTime)
+    if (scheduleValidationError) {
+      setTimeError(scheduleValidationError)
+      setErrorMessage(scheduleValidationError)
+      return
+    }
+
+    if (!form.serviceTypeId || !form.employeeId) {
+      setErrorMessage('Selecciona el tipo de servicio y el especialista para confirmar la cita.')
       return
     }
 
     const parsedDate = new Date(form.dateTime)
-    if (Number.isNaN(parsedDate.getTime())) {
-      setErrorMessage('La fecha y hora seleccionadas no son válidas.')
-      return
-    }
-
     setSubmitting(true)
     try {
+      let vehicle = resolvedVehicle
+      if (!vehicle || vehicle.plate?.toUpperCase() !== normalizedPlate) {
+        vehicle = await lookupVehicleByPlate(normalizedPlate)
+        if (!vehicle?.id) {
+          return
+        }
+      }
+
       const response = await createAppointment({
         customerId,
-        vehicleId: form.vehicleId,
+        vehicleId: vehicle.id,
         employeeId: form.employeeId,
         serviceTypeId: form.serviceTypeId,
         dateTime: parsedDate.toISOString(),
       })
+
       setCreatedAppointment(response)
       setForm(INITIAL_FORM)
+      setResolvedVehicle(null)
+      setTimeError('')
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error, 'No fue posible agendar tu cita.'))
     } finally {
@@ -152,7 +251,7 @@ export function BookAppointmentPage() {
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-xl font-bold text-slate-900">Agendar Cita</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Elige tu vehículo, el servicio de detailing, el especialista disponible y el horario que prefieras.
+            Ingresa la placa de tu vehículo, elige el servicio de detailing, tu especialista y un horario dentro de nuestras franjas de atención.
           </p>
         </section>
 
@@ -169,25 +268,8 @@ export function BookAppointmentPage() {
           </div>
         ) : loading ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500 shadow-xs">
-            Cargando catálogo de servicios, especialistas y tus vehículos...
+            Cargando catálogo de servicios y especialistas...
           </div>
-        ) : vehicles.length === 0 ? (
-          <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-xs">
-            <h3 className="text-base font-semibold text-slate-900">
-              Primero registra un vehículo
-            </h3>
-            <p className="mt-1 text-sm text-slate-500">
-              Para agendar una cita debes tener al menos un vehículo asociado a tu cuenta.
-            </p>
-            <div className="mt-5">
-              <Link
-                to="/portal/mis-vehiculos"
-                className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-700"
-              >
-                Ir a Mis Vehículos
-              </Link>
-            </div>
-          </section>
         ) : (
           <>
             {errorMessage && (
@@ -232,6 +314,9 @@ export function BookAppointmentPage() {
                         </dd>
                       </div>
                     </dl>
+                    <p className="mt-3 text-xs font-semibold text-emerald-800">
+                      Modalidad: Pago en efectivo al finalizar el servicio.
+                    </p>
                   </div>
 
                   <div className="flex flex-wrap gap-3">
@@ -259,27 +344,50 @@ export function BookAppointmentPage() {
 
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <label htmlFor="appointment-vehicle" className="block text-sm font-medium text-slate-700">
-                      Vehículo
-                    </label>
-                    <select
-                      id="appointment-vehicle"
-                      value={form.vehicleId}
-                      onChange={handleFieldChange('vehicleId')}
-                      className="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 focus:outline-none"
-                      required
+                <div className="space-y-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                    <div className="flex-1">
+                      <Input
+                        id="appointment-plate"
+                        label="Placa del vehículo"
+                        type="text"
+                        placeholder="Ej: ABC123"
+                        value={form.plate}
+                        onChange={handlePlateChange}
+                        error={plateError}
+                        className="uppercase"
+                        required
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      loading={searchingVehicle}
+                      onClick={handleSearchPlateClick}
+                      className="sm:mb-0.5"
                     >
-                      <option value="">Selecciona un vehículo...</option>
-                      {vehicles.map((vehicle) => (
-                        <option key={vehicle.id} value={vehicle.id}>
-                          {vehicle.plate} - {vehicle.brand} {vehicle.model} ({vehicle.year})
-                        </option>
-                      ))}
-                    </select>
+                      Buscar placa
+                    </Button>
                   </div>
 
+                  {resolvedVehicle ? (
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-900">
+                      Vehículo verificado:{' '}
+                      <span className="font-bold">{resolvedVehicle.plate}</span> ·{' '}
+                      {resolvedVehicle.brand} {resolvedVehicle.model} ({resolvedVehicle.year})
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500">
+                      Ingresa la placa registrada de tu vehículo.{' '}
+                      <Link to="/portal/mis-vehiculos" className="font-semibold text-sky-600 hover:text-sky-700">
+                        ¿Aún no lo registras? Hazlo en Mis Vehículos
+                      </Link>
+                      .
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid gap-5 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <label htmlFor="appointment-service" className="block text-sm font-medium text-slate-700">
                       Tipo de servicio
@@ -320,7 +428,7 @@ export function BookAppointmentPage() {
                     </select>
                   </div>
 
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 sm:col-span-2">
                     <label htmlFor="appointment-datetime" className="block text-sm font-medium text-slate-700">
                       Fecha y hora
                     </label>
@@ -329,15 +437,19 @@ export function BookAppointmentPage() {
                       type="datetime-local"
                       min={minDateTime}
                       value={form.dateTime}
-                      onChange={handleFieldChange('dateTime')}
-                      className="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 focus:outline-none"
+                      onChange={handleDateTimeChange}
+                      className="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 focus:outline-none sm:max-w-sm"
                       required
                     />
+                    <p className="text-xs text-slate-500">
+                      Horarios permitidos: de 7:00 a. m. a 12:00 p. m. y de 2:30 p. m. a 9:00 p. m.
+                    </p>
+                    {timeError && <p className="text-xs font-medium text-rose-600">{timeError}</p>}
                   </div>
                 </div>
 
-                {selectedService && (
-                  <div className="rounded-xl border border-sky-100 bg-sky-50/70 p-4">
+                <div className="rounded-xl border border-sky-100 bg-sky-50/70 p-4 space-y-3">
+                  {selectedService ? (
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <p className="text-xs font-semibold tracking-wide text-sky-700 uppercase">
@@ -359,14 +471,22 @@ export function BookAppointmentPage() {
                         </p>
                       </div>
                     </div>
+                  ) : (
+                    <p className="text-xs text-slate-600">
+                      Selecciona un servicio para ver el resumen de tarifa y duración estimada.
+                    </p>
+                  )}
+
+                  <div className="border-t border-sky-200/70 pt-2.5 text-sm font-semibold text-slate-800">
+                    Pago en efectivo al finalizar el servicio
                   </div>
-                )}
+                </div>
 
                 <div className="flex justify-end pt-2">
                   <Button
                     type="submit"
                     loading={submitting}
-                    disabled={serviceTypes.length === 0 || employees.length === 0}
+                    disabled={serviceTypes.length === 0 || employees.length === 0 || Boolean(timeError)}
                   >
                     Confirmar cita
                   </Button>
