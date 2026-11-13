@@ -212,18 +212,18 @@ export function CatalogPage({ initialTab = 'services' }) {
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900">Catálogo y Empleados</h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <h1 className="text-[28px] font-bold tracking-tight text-[#1E1B4B]">Catálogo y Empleados</h1>
+            <p className="mt-1 text-sm text-[#5B5F7A]">
               Administra los servicios de lavado/detailing y el equipo operativo.
             </p>
           </div>
 
-          <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-xs">
+          <div className="inline-flex rounded-xl border border-[#E4E6F2] bg-white p-1 shadow-card">
             <button
               type="button"
               onClick={() => setActiveTab('services')}
               className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-                activeTab === 'services' ? 'bg-sky-600 text-white' : 'text-slate-600 hover:bg-slate-50'
+                activeTab === 'services' ? 'bg-[#4F46E5] text-white' : 'text-[#5B5F7A] hover:bg-[#F5F6FB]'
               }`}
             >
               Tipos de servicio ({services.length})
@@ -232,7 +232,7 @@ export function CatalogPage({ initialTab = 'services' }) {
               type="button"
               onClick={() => setActiveTab('employees')}
               className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-                activeTab === 'employees' ? 'bg-sky-600 text-white' : 'text-slate-600 hover:bg-slate-50'
+                activeTab === 'employees' ? 'bg-[#4F46E5] text-white' : 'text-[#5B5F7A] hover:bg-[#F5F6FB]'
               }`}
             >
               Empleados ({employees.length})
@@ -243,7 +243,7 @@ export function CatalogPage({ initialTab = 'services' }) {
         {errorMessage && (
           <div
             role="alert"
-            className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+            className="rounded-xl border border-[#B91C1C]/20 bg-[#FEE2E2] px-4 py-3 text-sm font-medium text-[#B91C1C]"
           >
             {errorMessage}
           </div>
@@ -251,11 +251,11 @@ export function CatalogPage({ initialTab = 'services' }) {
 
         {activeTab === 'services' ? (
           <>
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <section className="rounded-2xl border border-[#E4E6F2] bg-white p-6 shadow-card">
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-base font-semibold text-slate-900">
+                <h2 className="text-[18px] font-semibold text-[#1E1B4B]">
                   {editingServiceId ? 'Editar tipo de servicio' : 'Nuevo tipo de servicio'}
-                </h3>
+                </h2>
                 {editingServiceId && (
                   <Button variant="secondary" onClick={resetServiceForm}>
                     Cancelar edición
@@ -309,22 +309,22 @@ export function CatalogPage({ initialTab = 'services' }) {
               </form>
             </section>
 
-            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-                <h3 className="text-base font-semibold text-slate-900">Catálogo de servicios</h3>
+            <section className="overflow-hidden rounded-2xl border border-[#E4E6F2] bg-white shadow-card">
+              <div className="flex items-center justify-between border-b border-[#E4E6F2] px-6 py-4">
+                <h3 className="text-base font-semibold text-[#1E1B4B]">Catálogo de servicios</h3>
                 <Button variant="secondary" onClick={loadCatalog} disabled={loading}>
                   Actualizar
                 </Button>
               </div>
 
               {loading ? (
-                <div className="p-8 text-center text-sm text-slate-500">Cargando tipos de servicio...</div>
+                <div className="p-8 text-center text-sm text-[#5B5F7A]">Cargando tipos de servicio...</div>
               ) : services.length === 0 ? (
-                <div className="p-8 text-center text-sm text-slate-500">No hay servicios registrados.</div>
+                <div className="p-8 text-center text-sm text-[#5B5F7A]">No hay servicios registrados.</div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-                    <thead className="bg-slate-50 text-xs font-semibold tracking-wider text-slate-600 uppercase">
+                  <table className="min-w-full divide-y divide-[#E4E6F2] text-left text-sm">
+                    <thead className="bg-[#F5F6FB] text-xs font-semibold tracking-wider text-[#5B5F7A] uppercase">
                       <tr>
                         <th className="px-4 py-3">Nombre</th>
                         <th className="px-4 py-3">Descripción</th>
@@ -333,22 +333,22 @@ export function CatalogPage({ initialTab = 'services' }) {
                         <th className="px-4 py-3 text-right">Acciones</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 bg-white">
+                    <tbody className="divide-y divide-[#E4E6F2] bg-white">
                       {services.map((service) => (
-                        <tr key={service.id} className="hover:bg-slate-50/80">
-                          <td className="px-4 py-3 font-medium text-slate-900">{service.name}</td>
-                          <td className="px-4 py-3 text-slate-600">{service.description || '—'}</td>
-                          <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">
+                        <tr key={service.id} className="hover:bg-[#F5F6FB]/60">
+                          <td className="px-4 py-3 font-medium text-[#1E1B4B]">{service.name}</td>
+                          <td className="px-4 py-3 text-[#5B5F7A]">{service.description || '—'}</td>
+                          <td className="whitespace-nowrap px-4 py-3 font-semibold tabular-nums text-[#1E1B4B]">
                             ${Number(service.price).toLocaleString('es-CO')}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-slate-700">{service.durationMin} min</td>
+                          <td className="whitespace-nowrap px-4 py-3 tabular-nums text-[#5B5F7A]">{service.durationMin} min</td>
                           <td className="whitespace-nowrap px-4 py-3 text-right">
                             <div className="inline-flex gap-2">
                               <button
                                 type="button"
                                 disabled={busyId === service.id}
                                 onClick={() => handleEditService(service)}
-                                className="rounded-md px-2.5 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-50"
+                                className="rounded-md px-2.5 py-1 text-xs font-semibold text-[#4F46E5] hover:bg-indigo-50"
                               >
                                 Editar
                               </button>
@@ -356,7 +356,7 @@ export function CatalogPage({ initialTab = 'services' }) {
                                 type="button"
                                 disabled={busyId === service.id}
                                 onClick={() => handleDeleteService(service.id)}
-                                className="rounded-md px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                                className="rounded-md px-2.5 py-1 text-xs font-semibold text-[#B91C1C] hover:bg-[#FEE2E2]"
                               >
                                 Eliminar
                               </button>
@@ -372,11 +372,11 @@ export function CatalogPage({ initialTab = 'services' }) {
           </>
         ) : (
           <>
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <section className="rounded-2xl border border-[#E4E6F2] bg-white p-6 shadow-card">
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-base font-semibold text-slate-900">
+                <h2 className="text-[18px] font-semibold text-[#1E1B4B]">
                   {editingEmployeeId ? 'Editar empleado' : 'Nuevo empleado'}
-                </h3>
+                </h2>
                 {editingEmployeeId && (
                   <Button variant="secondary" onClick={resetEmployeeForm}>
                     Cancelar edición
@@ -409,34 +409,34 @@ export function CatalogPage({ initialTab = 'services' }) {
               </form>
             </section>
 
-            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-                <h3 className="text-base font-semibold text-slate-900">Listado de empleados</h3>
+            <section className="overflow-hidden rounded-2xl border border-[#E4E6F2] bg-white shadow-card">
+              <div className="flex items-center justify-between border-b border-[#E4E6F2] px-6 py-4">
+                <h3 className="text-base font-semibold text-[#1E1B4B]">Listado de empleados</h3>
                 <Button variant="secondary" onClick={loadCatalog} disabled={loading}>
                   Actualizar
                 </Button>
               </div>
 
               {loading ? (
-                <div className="p-8 text-center text-sm text-slate-500">Cargando empleados...</div>
+                <div className="p-8 text-center text-sm text-[#5B5F7A]">Cargando empleados...</div>
               ) : employees.length === 0 ? (
-                <div className="p-8 text-center text-sm text-slate-500">No hay empleados registrados.</div>
+                <div className="p-8 text-center text-sm text-[#5B5F7A]">No hay empleados registrados.</div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-                    <thead className="bg-slate-50 text-xs font-semibold tracking-wider text-slate-600 uppercase">
+                  <table className="min-w-full divide-y divide-[#E4E6F2] text-left text-sm">
+                    <thead className="bg-[#F5F6FB] text-xs font-semibold tracking-wider text-[#5B5F7A] uppercase">
                       <tr>
                         <th className="px-4 py-3">Nombre</th>
                         <th className="px-4 py-3">Cargo / Rol</th>
                         <th className="px-4 py-3 text-right">Acciones</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 bg-white">
+                    <tbody className="divide-y divide-[#E4E6F2] bg-white">
                       {employees.map((employee) => (
-                        <tr key={employee.id} className="hover:bg-slate-50/80">
-                          <td className="px-4 py-3 font-medium text-slate-900">{employee.name}</td>
+                        <tr key={employee.id} className="hover:bg-[#F5F6FB]/60">
+                          <td className="px-4 py-3 font-medium text-[#1E1B4B]">{employee.name}</td>
                           <td className="px-4 py-3">
-                            <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                            <span className="inline-flex rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-[#4F46E5]">
                               {employee.role}
                             </span>
                           </td>
@@ -446,7 +446,7 @@ export function CatalogPage({ initialTab = 'services' }) {
                                 type="button"
                                 disabled={busyId === employee.id}
                                 onClick={() => handleEditEmployee(employee)}
-                                className="rounded-md px-2.5 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-50"
+                                className="rounded-md px-2.5 py-1 text-xs font-semibold text-[#4F46E5] hover:bg-indigo-50"
                               >
                                 Editar
                               </button>
@@ -454,7 +454,7 @@ export function CatalogPage({ initialTab = 'services' }) {
                                 type="button"
                                 disabled={busyId === employee.id}
                                 onClick={() => handleDeleteEmployee(employee.id)}
-                                className="rounded-md px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                                className="rounded-md px-2.5 py-1 text-xs font-semibold text-[#B91C1C] hover:bg-[#FEE2E2]"
                               >
                                 Eliminar
                               </button>

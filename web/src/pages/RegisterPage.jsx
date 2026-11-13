@@ -8,8 +8,7 @@ import { getHomeRouteByRole } from '../utils/authRedirect'
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /**
- * Pantalla de registro público de clientes contra POST /api/auth/register.
- * Exige nombre y teléfono para asegurar la vinculación automática con la tabla clientes (customerId).
+ * Pantalla de registro de clientes con estética móvil/desktop AutoClean.
  */
 export function RegisterPage() {
   const { isAuthenticated, user, register } = useAuth()
@@ -29,22 +28,12 @@ export function RegisterPage() {
 
   const validateForm = () => {
     const errors = {}
-    if (!name.trim()) {
-      errors.name = 'El nombre completo es obligatorio.'
-    }
-    if (!phone.trim()) {
-      errors.phone = 'El teléfono de contacto es obligatorio.'
-    }
-    if (!email.trim()) {
-      errors.email = 'El correo electrónico es obligatorio.'
-    } else if (!EMAIL_PATTERN.test(email.trim())) {
-      errors.email = 'El formato del correo es inválido.'
-    }
-    if (!password) {
-      errors.password = 'La contraseña es obligatoria.'
-    } else if (password.length < 6) {
-      errors.password = 'La contraseña debe tener al menos 6 caracteres.'
-    }
+    if (!name.trim()) errors.name = 'El nombre completo es obligatorio.'
+    if (!phone.trim()) errors.phone = 'El teléfono de contacto es obligatorio.'
+    if (!email.trim()) errors.email = 'El correo electrónico es obligatorio.'
+    else if (!EMAIL_PATTERN.test(email.trim())) errors.email = 'El formato del correo es inválido.'
+    if (!password) errors.password = 'La contraseña es obligatoria.'
+    else if (password.length < 6) errors.password = 'La contraseña debe tener al menos 6 caracteres.'
     return errors
   }
 
@@ -73,100 +62,107 @@ export function RegisterPage() {
       if (responseData?.validationErrors) {
         setFieldErrors(responseData.validationErrors)
       }
-      if (responseData?.message) {
-        setErrorMessage(responseData.message)
-      } else {
-        setErrorMessage('No fue posible completar el registro. Verifica tus datos o intenta más tarde.')
-      }
+      setErrorMessage(
+        responseData?.message ||
+          'No fue posible completar el registro. Verifica tus datos o intenta más tarde.',
+      )
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-sky-900 px-4 py-12">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl ring-1 ring-slate-200">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-sky-600 text-lg font-bold text-white shadow-sm">
+    <div className="min-h-screen bg-[#F5F6FB] lg:grid lg:grid-cols-12">
+      <div className="flex flex-col justify-between bg-gradient-to-br from-[#1E1B4B] via-[#312E81] to-[#4F46E5] px-6 py-8 text-white lg:col-span-5 lg:p-12">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-base font-bold">
             AC
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Crear cuenta</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Regístrate en el Portal de Clientes de AutoClean
+          <span className="text-lg font-bold">AutoClean</span>
+        </div>
+        <div className="my-6 space-y-3 lg:my-0">
+          <h1 className="text-[28px] leading-[34px] font-bold">Crea tu cuenta de cliente</h1>
+          <p className="text-[15px] text-indigo-100/90">
+            Registra tus vehículos una sola vez, agenda citas por placa y sigue cada etapa desde tu celular.
           </p>
         </div>
+        <p className="hidden text-[13px] text-indigo-200 lg:block">Pago 100% en efectivo al finalizar.</p>
+      </div>
 
-        {errorMessage && (
-          <div
-            role="alert"
-            className="mb-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
-          >
-            {errorMessage}
+      <div className="flex items-center justify-center px-4 py-8 sm:px-8 lg:col-span-7">
+        <div className="w-full max-w-[460px] rounded-2xl border border-[#E4E6F2] bg-white p-6 shadow-card sm:p-8">
+          <div className="mb-6">
+            <h2 className="text-[22px] font-semibold text-[#1E1B4B]">Registro rápido</h2>
+            <p className="mt-1 text-[14px] text-[#5B5F7A]">Completa tus datos para comenzar</p>
           </div>
-        )}
 
-        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-          <Input
-            id="name"
-            label="Nombre completo"
-            type="text"
-            autoComplete="name"
-            placeholder="Juan Pérez"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            error={fieldErrors.name}
-            required
-          />
+          {errorMessage && (
+            <div
+              role="alert"
+              className="mb-5 rounded-xl border border-[#FECACA] bg-[#FEE2E2] px-4 py-3 text-sm font-medium text-[#B91C1C]"
+            >
+              {errorMessage}
+            </div>
+          )}
 
-          <Input
-            id="phone"
-            label="Teléfono"
-            type="tel"
-            autoComplete="tel"
-            placeholder="3001234567"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            error={fieldErrors.phone}
-            required
-          />
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            <Input
+              id="name"
+              label="Nombre completo"
+              size="l"
+              placeholder="Camila Restrepo"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              error={fieldErrors.name}
+              required
+            />
+            <Input
+              id="phone"
+              label="Teléfono"
+              type="tel"
+              size="l"
+              placeholder="+57 310 458 9210"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              error={fieldErrors.phone}
+              required
+            />
+            <Input
+              id="email"
+              label="Correo electrónico"
+              type="email"
+              size="l"
+              placeholder="camila@correo.co"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              error={fieldErrors.email}
+              required
+            />
+            <Input
+              id="password"
+              label="Contraseña"
+              type="password"
+              size="l"
+              placeholder="Mínimo 6 caracteres"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              error={fieldErrors.password}
+              required
+            />
 
-          <Input
-            id="email"
-            label="Correo electrónico"
-            type="email"
-            autoComplete="email"
-            placeholder="cliente@correo.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            error={fieldErrors.email}
-            required
-          />
+            <Button type="submit" size="l" loading={submitting} className="w-full shadow-float">
+              Crear cuenta
+            </Button>
+          </form>
 
-          <Input
-            id="password"
-            label="Contraseña"
-            type="password"
-            autoComplete="new-password"
-            placeholder="Mínimo 6 caracteres"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            error={fieldErrors.password}
-            required
-          />
-
-          <Button type="submit" loading={submitting} className="w-full">
-            Registrarme
-          </Button>
-        </form>
-
-        <p className="mt-6 text-center text-sm text-slate-600">
-          ¿Ya tienes una cuenta?{' '}
-          <Link to="/login" className="font-semibold text-sky-600 hover:text-sky-700">
-            Inicia sesión
-          </Link>
-        </p>
+          <p className="mt-6 text-center text-[14px] text-[#5B5F7A]">
+            ¿Ya tienes cuenta?{' '}
+            <Link to="/login" className="font-semibold text-[#4F46E5] hover:text-[#4338CA]">
+              Inicia sesión
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   )
 }
-

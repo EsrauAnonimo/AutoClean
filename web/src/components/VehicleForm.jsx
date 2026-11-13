@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button } from './Button'
 import { Input } from './Input'
+import { PlateInput } from './PlateInput'
 
 const MIN_VEHICLE_YEAR = 1900
 const MAX_VEHICLE_YEAR = 2100
@@ -18,8 +19,8 @@ function buildInitialForm(initialVehicle) {
 }
 
 /**
- * Formulario controlado reutilizable para registrar o editar un vehículo del cliente.
- * Replica las validaciones de VehicleRequest (placa, marca, modelo obligatorios y año 1900-2100).
+ * Formulario controlado para registrar o editar un vehículo del cliente.
+ * Mantiene las validaciones de placa, marca, modelo obligatorios y año 1900-2100.
  */
 export function VehicleForm({
   initialVehicle = null,
@@ -39,9 +40,7 @@ export function VehicleForm({
     ...fieldErrors,
   }
 
-  const handleChange = (field) => (event) => {
-    const value = event.target.value
-    setForm((prev) => ({ ...prev, [field]: value }))
+  const clearFieldError = (field) => {
     if (fieldErrors[field]) {
       setFieldErrors((prev) => {
         const next = { ...prev }
@@ -49,6 +48,17 @@ export function VehicleForm({
         return next
       })
     }
+  }
+
+  const handleChange = (field) => (event) => {
+    const value = event.target.value
+    setForm((prev) => ({ ...prev, [field]: value }))
+    clearFieldError(field)
+  }
+
+  const handlePlateChange = (cleanedPlate) => {
+    setForm((prev) => ({ ...prev, plate: cleanedPlate }))
+    clearFieldError('plate')
   }
 
   const validate = () => {
@@ -59,19 +69,19 @@ export function VehicleForm({
     const rawYear = String(form.year).trim()
 
     if (!plate) {
-      errors.plate = 'La placa no puede estar vacía.'
+      errors.plate = 'La placa es obligatoria.'
     }
     if (!brand) {
-      errors.brand = 'La marca no puede estar vacía.'
+      errors.brand = 'La marca es obligatoria.'
     }
     if (!model) {
-      errors.model = 'El modelo no puede estar vacío.'
+      errors.model = 'El modelo es obligatorio.'
     }
 
     if (!rawYear) {
       errors.year = 'El año es obligatorio.'
     } else if (!/^\d+$/.test(rawYear)) {
-      errors.year = `El año debe ser un número válido entre ${MIN_VEHICLE_YEAR} y ${MAX_VEHICLE_YEAR}.`
+      errors.year = `Ingresa un año válido entre ${MIN_VEHICLE_YEAR} y ${MAX_VEHICLE_YEAR}.`
     } else {
       const parsedYear = Number.parseInt(rawYear, 10)
       if (parsedYear < MIN_VEHICLE_YEAR || parsedYear > MAX_VEHICLE_YEAR) {
@@ -107,38 +117,23 @@ export function VehicleForm({
       {serverError && (
         <div
           role="alert"
-          className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+          className="rounded-xl border border-[#B91C1C]/20 bg-[#FEE2E2] px-4 py-3 text-sm font-medium text-[#B91C1C]"
         >
           {serverError}
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Input
-          id="vehicle-plate"
-          label="Placa"
-          type="text"
-          placeholder="ABC123"
-          value={form.plate}
-          onChange={handleChange('plate')}
-          error={mergedErrors.plate}
-          className="uppercase"
-          required
-        />
+      <PlateInput
+        id="vehicle-plate"
+        label="Placa"
+        value={form.plate}
+        onChange={handlePlateChange}
+        error={mergedErrors.plate}
+        compact
+        required
+      />
 
-        <Input
-          id="vehicle-year"
-          label="Año"
-          type="number"
-          min={MIN_VEHICLE_YEAR}
-          max={MAX_VEHICLE_YEAR}
-          placeholder="2023"
-          value={form.year}
-          onChange={handleChange('year')}
-          error={mergedErrors.year}
-          required
-        />
-
+      <div className="grid gap-4 sm:grid-cols-3">
         <Input
           id="vehicle-brand"
           label="Marca"
@@ -154,22 +149,35 @@ export function VehicleForm({
           id="vehicle-model"
           label="Modelo"
           type="text"
-          placeholder="CX-5"
+          placeholder="CX-30"
           value={form.model}
           onChange={handleChange('model')}
           error={mergedErrors.model}
           required
         />
+
+        <Input
+          id="vehicle-year"
+          label="Año"
+          type="number"
+          min={MIN_VEHICLE_YEAR}
+          max={MAX_VEHICLE_YEAR}
+          placeholder="2023"
+          value={form.year}
+          onChange={handleChange('year')}
+          error={mergedErrors.year}
+          required
+        />
       </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+      <div className="flex flex-wrap items-center justify-end gap-3 border-t border-[#E4E6F2] pt-4">
         {onCancel && (
           <Button type="button" variant="secondary" onClick={onCancel} disabled={submitting}>
             Cancelar
           </Button>
         )}
         <Button type="submit" loading={submitting}>
-          {isEditing ? 'Guardar cambios' : 'Registrar vehículo'}
+          {isEditing ? 'Guardar cambios' : 'Guardar vehículo'}
         </Button>
       </div>
     </form>
