@@ -64,6 +64,13 @@
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
+        <!-- Carga automática de variables desde archivo .env en desarrollo local -->
+        <dependency>
+            <groupId>me.paulschwarz</groupId>
+            <artifactId>spring-dotenv</artifactId>
+            <version>4.0.0</version>
+        </dependency>
+
         <!-- Suite de pruebas unitarias e integración (JUnit 5, MockMvc, Mockito) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
