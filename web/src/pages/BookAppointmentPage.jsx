@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '../components/Button'
+import { CompleteCustomerProfileCard } from '../components/CompleteCustomerProfileCard'
 import { Input } from '../components/Input'
 import { MainLayout } from '../components/MainLayout'
 import { useAuth } from '../context/AuthContext'
@@ -256,16 +257,7 @@ export function BookAppointmentPage() {
         </section>
 
         {!customerId ? (
-          <div
-            role="alert"
-            className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800 shadow-xs"
-          >
-            <p className="font-semibold">Perfil de cliente no vinculado</p>
-            <p className="mt-1">
-              Tu sesión no tiene un identificador de cliente asignado (<code>customerId</code>).
-              Regístrate con nombre y teléfono o comunícate con AutoClean para habilitar tus reservas.
-            </p>
-          </div>
+          <CompleteCustomerProfileCard />
         ) : loading ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500 shadow-xs">
             Cargando catálogo de servicios y especialistas...

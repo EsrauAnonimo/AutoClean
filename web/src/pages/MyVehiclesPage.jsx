@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Button } from '../components/Button'
+import { CompleteCustomerProfileCard } from '../components/CompleteCustomerProfileCard'
 import { MainLayout } from '../components/MainLayout'
 import { VehicleForm } from '../components/VehicleForm'
 import { useAuth } from '../context/AuthContext'
@@ -159,22 +161,21 @@ export function MyVehiclesPage() {
               Administra los vehículos asociados a tu cuenta para agendar servicios rápidamente.
             </p>
           </div>
-          {customerId && !showForm && (
-            <Button onClick={openCreateForm}>+ Agregar vehículo</Button>
+          {customerId && (
+            <div className="flex flex-wrap items-center gap-2.5">
+              <Link
+                to="/portal/agendar"
+                className="inline-flex items-center justify-center rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 transition-colors hover:bg-slate-50"
+              >
+                Agendar cita
+              </Link>
+              {!showForm && <Button onClick={openCreateForm}>+ Agregar vehículo</Button>}
+            </div>
           )}
         </section>
 
         {!customerId ? (
-          <div
-            role="alert"
-            className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800 shadow-xs"
-          >
-            <p className="font-semibold">Perfil de cliente no vinculado</p>
-            <p className="mt-1">
-              Tu cuenta aún no tiene un identificador de cliente asignado (<code>customerId</code>).
-              Para registrar vehículos, crea una cuenta ingresando tu nombre y teléfono o comunícate con AutoClean.
-            </p>
-          </div>
+          <CompleteCustomerProfileCard />
         ) : (
           <>
             {errorMessage && (
@@ -249,7 +250,13 @@ export function MyVehiclesPage() {
                       </h3>
                     </div>
 
-                    <div className="mt-5 flex items-center gap-2 border-t border-slate-100 pt-4">
+                    <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+                      <Link
+                        to={`/portal/agendar?vehicleId=${vehicle.id}`}
+                        className="w-full rounded-lg bg-sky-50 px-3 py-2 text-center text-xs font-semibold text-sky-700 ring-1 ring-inset ring-sky-200 transition-colors hover:bg-sky-100"
+                      >
+                        Agendar cita con este vehículo
+                      </Link>
                       <Button
                         variant="secondary"
                         className="flex-1 py-2 text-xs"
