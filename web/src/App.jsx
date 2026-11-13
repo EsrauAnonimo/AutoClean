@@ -6,6 +6,7 @@ import { CatalogPage } from './pages/CatalogPage'
 import { CustomersPage } from './pages/CustomersPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
+import { OAuth2RedirectPage } from './pages/OAuth2RedirectPage'
 import { PortalDashboardPage } from './pages/PortalDashboardPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ReportsPage } from './pages/ReportsPage'
@@ -25,6 +26,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/oauth2/redirect" element={<OAuth2RedirectPage />} />
 
           {/* Rutas del panel administrativo/operativo */}
           <Route
