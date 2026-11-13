@@ -47,3 +47,30 @@ api.interceptors.response.use(
 )
 
 export default api
+
+/**
+ * Extrae un mensaje legible desde una respuesta de error de Axios/Spring Boot.
+ */
+export function getApiErrorMessage(error, fallback = 'Ocurrió un error al comunicarse con el servidor.') {
+  if (!error.response) {
+    return 'No fue posible conectar con el servidor. Verifica que el backend esté activo.'
+  }
+
+  const data = error.response.data
+  if (data?.errors && typeof data.errors === 'object') {
+    const fieldMessages = Object.values(data.errors).filter(Boolean)
+    if (fieldMessages.length > 0) {
+      return fieldMessages.join(' · ')
+    }
+  }
+
+  if (data?.message) {
+    return data.message
+  }
+
+  if (error.response.status === 401 || error.response.status === 403) {
+    return 'No tienes permisos o tu sesión expiró. Inicia sesión nuevamente.'
+  }
+
+  return fallback
+}
