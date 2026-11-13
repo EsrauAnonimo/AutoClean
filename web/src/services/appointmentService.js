@@ -12,6 +12,17 @@ export async function getAppointments(params = {}) {
 }
 
 /**
+ * Lista las citas asociadas exclusivamente a un cliente específico.
+ */
+export async function getAppointmentsByCustomer(customerId) {
+  if (!customerId) {
+    throw new Error('El identificador del cliente es obligatorio para consultar sus citas.')
+  }
+  const { data } = await api.get('/appointments', { params: { customerId } })
+  return data
+}
+
+/**
  * Consulta una cita individual por su identificador (usado en polling en vivo).
  */
 export async function getAppointmentById(id) {
@@ -44,14 +55,7 @@ export async function updateAppointmentStatus(id, status) {
 }
 
 /**
- * Lista las citas asociadas exclusivamente a un cliente específico.
- */
-export async function getAppointmentsByCustomer(customerId) {
-  if (!customerId) {
-    throw new Error('El identificador del cliente es obligatorio para consultar sus citas.')
-  }
-  const { data } = await api.get('/appointments', { params: { customerId } })
- * Cancela una cita por iniciativa del cliente (solo permitido en estado PENDING).
+ * Cancela una cita pendiente del cliente mediante PATCH /api/appointments/{id}/cancel.
  */
 export async function cancelAppointment(id) {
   const { data } = await api.patch(`/appointments/${id}/cancel`)
@@ -59,10 +63,6 @@ export async function cancelAppointment(id) {
 }
 
 /**
- * Cancela una cita pendiente del cliente mediante PATCH /api/appointments/{id}/cancel.
- */
-export async function cancelAppointment(id) {
-  const { data } = await api.patch(`/appointments/${id}/cancel`)
  * Actualiza el estado operativo en tiempo real del vehículo en una cita.
  */
 export async function updateVehicleStatus(id, vehicleStatus) {
