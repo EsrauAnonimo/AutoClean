@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AppointmentStatusBadge } from '../components/AppointmentStatusBadge'
 import { Button } from '../components/Button'
@@ -29,7 +29,10 @@ import { CompleteCustomerProfileCard } from '../components/CompleteCustomerProfi
 import { MainLayout } from '../components/MainLayout'
 import { useAuth } from '../context/AuthContext'
 import { getApiErrorMessage } from '../services/api'
-import { getAppointments, updateAppointmentStatus } from '../services/appointmentService'
+import { cancelAppointment, getAppointmentById, getAppointments } from '../services/appointmentService'
+import { getVehicleStatusMeta } from '../utils/vehicleStatus'
+
+const POLLING_INTERVAL_MS = 10_000
 
 const STATUS_BADGES = {
   PENDING: {
@@ -77,8 +80,8 @@ function sortByDateDesc(list) {
  * Lista las citas del cliente ordenadas por fecha, permite filtrar por estado
  * y cancelar únicamente citas en estado PENDING mediante PATCH /api/appointments/{id}/cancel.
 /**
- * Pantalla "Historial de Citas" del Portal de Clientes para consultar turnos
- * y cancelar citas activas (PENDING o IN_PROGRESS).
+ * Pantalla "Historial de Citas" del Portal de Clientes para consultar turnos,
+ * ver el estado del vehículo en vivo y cancelar citas pendientes.
  */
 export function AppointmentHistoryPage() {
   const { user } = useAuth()
@@ -105,6 +108,11 @@ export function AppointmentHistoryPage() {
   const [loading, setLoading] = useState(Boolean(customerId))
   const [busyId, setBusyId] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
+  const appointmentsRef = useRef([])
+
+  useEffect(() => {
+    appointmentsRef.current = appointments
+  }, [appointments])
 
   const loadHistory = useCallback(async () => {
     if (!customerId) return
@@ -162,6 +170,39 @@ export function AppointmentHistoryPage() {
     }
   }, [customerId])
 
+  useEffect(() => {
+    if (!customerId) return undefined
+    let active = true
+
+    const pollLiveAppointments = async () => {
+      const trackedIds = appointmentsRef.current
+        .filter((item) => item.status !== 'CANCELLED' && item.vehicleStatus !== 'DELIVERED')
+        .map((item) => item.id)
+
+      if (trackedIds.length === 0) return
+
+      const results = await Promise.allSettled(trackedIds.map((id) => getAppointmentById(id)))
+      if (!active) return
+
+      const updatedById = new Map()
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value?.id) {
+          updatedById.set(result.value.id, result.value)
+        }
+      }
+
+      if (updatedById.size > 0) {
+        setAppointments((prev) => prev.map((item) => updatedById.get(item.id) || item))
+      }
+    }
+
+    const intervalId = window.setInterval(pollLiveAppointments, POLLING_INTERVAL_MS)
+    return () => {
+      active = false
+      window.clearInterval(intervalId)
+    }
+  }, [customerId])
+
   const filteredAppointments = useMemo(() => {
     if (statusFilter === 'ALL') {
       return appointments
@@ -209,7 +250,7 @@ export function AppointmentHistoryPage() {
     setBusyId(appointment.id)
     setErrorMessage('')
     try {
-      const updated = await updateAppointmentStatus(appointment.id, 'CANCELLED')
+      const updated = await cancelAppointment(appointment.id)
       setAppointments((prev) => prev.map((item) => (item.id === appointment.id ? updated : item)))
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error, 'No fue posible cancelar la cita.'))
@@ -394,8 +435,8 @@ export function AppointmentHistoryPage() {
                     label: appointment.status,
                     badgeClass: 'bg-slate-100 text-slate-700',
                   }
-                  const canCancel =
-                    appointment.status === 'PENDING' || appointment.status === 'IN_PROGRESS'
+                  const vehicleMeta = getVehicleStatusMeta(appointment.vehicleStatus)
+                  const canCancel = appointment.status === 'PENDING'
 
                   return (
                     <article
@@ -452,6 +493,11 @@ export function AppointmentHistoryPage() {
                             className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusMeta.badgeClass}`}
                           >
                             {statusMeta.label}
+                          </span>
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${vehicleMeta.badgeClass}`}
+                          >
+                            Vehículo: {vehicleMeta.label}
                           </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
