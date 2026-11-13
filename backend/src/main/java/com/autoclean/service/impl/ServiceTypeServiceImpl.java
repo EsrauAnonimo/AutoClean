@@ -41,7 +41,6 @@ public class ServiceTypeServiceImpl implements ServiceTypeService {
 
         // Replica validaciones de negocio de legacy-javafx/.../model/ServiceType.java:44,63
         ServiceType serviceType = new ServiceType(
-                null,
                 request.name(),
                 request.description(),
                 request.price(),

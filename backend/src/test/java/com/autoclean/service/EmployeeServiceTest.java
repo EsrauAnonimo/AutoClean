@@ -83,7 +83,8 @@ class EmployeeServiceTest {
     @DisplayName("Debe actualizar un empleado existente")
     void shouldUpdateEmployeeSuccessfully() {
         UUID id = UUID.randomUUID();
-        Employee existing = new Employee(id, "Carlos Ruiz", "Operario");
+        Employee existing = new Employee("Carlos Ruiz", "Operario");
+        existing.setId(id);
         EmployeeRequestDto updateRequest = new EmployeeRequestDto("Carlos Ruiz Gómez", "Líder de Lavado");
 
         when(employeeRepository.findById(id)).thenReturn(Optional.of(existing));
@@ -110,7 +111,8 @@ class EmployeeServiceTest {
     @DisplayName("Debe eliminar un empleado existente")
     void shouldDeleteEmployeeSuccessfully() {
         UUID id = UUID.randomUUID();
-        Employee existing = new Employee(id, "Pedro Silva", "Pulidor");
+        Employee existing = new Employee("Pedro Silva", "Pulidor");
+        existing.setId(id);
 
         when(employeeRepository.findById(id)).thenReturn(Optional.of(existing));
 
@@ -123,7 +125,8 @@ class EmployeeServiceTest {
     @DisplayName("Debe buscar un empleado por ID")
     void shouldFindEmployeeById() {
         UUID id = UUID.randomUUID();
-        Employee existing = new Employee(id, "Laura Vélez", "Supervisora");
+        Employee existing = new Employee("Laura Vélez", "Supervisora");
+        existing.setId(id);
 
         when(employeeRepository.findById(id)).thenReturn(Optional.of(existing));
 
@@ -138,10 +141,11 @@ class EmployeeServiceTest {
     @Test
     @DisplayName("Debe listar todos los empleados")
     void shouldFindAllEmployees() {
-        List<Employee> list = List.of(
-                new Employee(UUID.randomUUID(), "E1", "R1"),
-                new Employee(UUID.randomUUID(), "E2", "R2")
-        );
+        Employee e1 = new Employee("E1", "R1");
+        e1.setId(UUID.randomUUID());
+        Employee e2 = new Employee("E2", "R2");
+        e2.setId(UUID.randomUUID());
+        List<Employee> list = List.of(e1, e2);
 
         when(employeeRepository.findAll()).thenReturn(list);
 

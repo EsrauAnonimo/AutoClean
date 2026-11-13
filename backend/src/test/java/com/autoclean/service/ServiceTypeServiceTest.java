@@ -100,7 +100,8 @@ class ServiceTypeServiceTest {
     @DisplayName("Debe actualizar un tipo de servicio existente")
     void shouldUpdateServiceTypeSuccessfully() {
         UUID id = UUID.randomUUID();
-        ServiceType existing = new ServiceType(id, "Lavado Simple", "Viejo", new BigDecimal("25000.00"), 30);
+        ServiceType existing = new ServiceType("Lavado Simple", "Viejo", new BigDecimal("25000.00"), 30);
+        existing.setId(id);
         ServiceTypeRequestDto updateRequest = new ServiceTypeRequestDto(
                 "Lavado Premium",
                 "Nuevo detalle",
@@ -139,7 +140,8 @@ class ServiceTypeServiceTest {
     @DisplayName("Debe eliminar un tipo de servicio existente")
     void shouldDeleteServiceTypeSuccessfully() {
         UUID id = UUID.randomUUID();
-        ServiceType existing = new ServiceType(id, "Desinfección", "Ozono", new BigDecimal("50000.00"), 30);
+        ServiceType existing = new ServiceType("Desinfección", "Ozono", new BigDecimal("50000.00"), 30);
+        existing.setId(id);
 
         when(serviceTypeRepository.findById(id)).thenReturn(Optional.of(existing));
 
@@ -152,7 +154,8 @@ class ServiceTypeServiceTest {
     @DisplayName("Debe buscar un tipo de servicio por ID")
     void shouldFindServiceTypeById() {
         UUID id = UUID.randomUUID();
-        ServiceType existing = new ServiceType(id, "Porcelanizado", "Brillo espejo", new BigDecimal("180000.00"), 120);
+        ServiceType existing = new ServiceType("Porcelanizado", "Brillo espejo", new BigDecimal("180000.00"), 120);
+        existing.setId(id);
 
         when(serviceTypeRepository.findById(id)).thenReturn(Optional.of(existing));
 
@@ -166,10 +169,11 @@ class ServiceTypeServiceTest {
     @Test
     @DisplayName("Debe listar todos los tipos de servicio")
     void shouldFindAllServiceTypes() {
-        List<ServiceType> list = List.of(
-                new ServiceType(UUID.randomUUID(), "S1", "D1", new BigDecimal("10000.00"), 30),
-                new ServiceType(UUID.randomUUID(), "S2", "D2", new BigDecimal("20000.00"), 45)
-        );
+        ServiceType st1 = new ServiceType("S1", "D1", new BigDecimal("10000.00"), 30);
+        st1.setId(UUID.randomUUID());
+        ServiceType st2 = new ServiceType("S2", "D2", new BigDecimal("20000.00"), 45);
+        st2.setId(UUID.randomUUID());
+        List<ServiceType> list = List.of(st1, st2);
 
         when(serviceTypeRepository.findAll()).thenReturn(list);
 

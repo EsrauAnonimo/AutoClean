@@ -41,7 +41,6 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         // Replica validaciones de negocio de legacy-javafx/.../model/Employee.java:43,54
         Employee employee = new Employee(
-                null,
                 request.name(),
                 request.role()
         );
