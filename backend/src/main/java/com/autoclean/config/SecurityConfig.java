@@ -1,13 +1,16 @@
 package com.autoclean.config;
 
+import com.autoclean.security.CustomOAuth2UserService;
 import com.autoclean.security.JwtAuthenticationFilter;
 import com.autoclean.security.JwtService;
+import com.autoclean.security.OAuth2SuccessHandler;
 import jakarta.servlet.DispatcherType;
 import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -16,7 +19,9 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -57,7 +62,11 @@ public class SecurityConfig {
      * @throws Exception si ocurre un error al configurar la seguridad HTTP
      */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            ObjectProvider<ClientRegistrationRepository> clientRegistrationRepositoryProvider,
+            ObjectProvider<CustomOAuth2UserService> customOAuth2UserServiceProvider,
+            ObjectProvider<OAuth2SuccessHandler> oAuth2SuccessHandlerProvider) throws Exception {
         http
                 // Habilita CORS para el frontend local y despliegues en Vercel antes de validar JWT
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -67,9 +76,30 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Permite forwards internos de error (/error) para no enmascarar 400/401/500 como 403
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
-                        .requestMatchers("/api/auth/**", "/error").permitAll()
+                        .requestMatchers("/api/auth/**", "/error", "/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
-                        .anyRequest().authenticated());
+                        .anyRequest().authenticated())
+                // Mantiene 403 en llamadas /api/** sin token en vez de redirigir al login OAuth2
+                .exceptionHandling(ex -> ex.defaultAuthenticationEntryPointFor(
+                        new HttpStatusEntryPoint(HttpStatus.FORBIDDEN),
+                        request -> request.getRequestURI().startsWith("/api/")
+                ));
+
+        if (clientRegistrationRepositoryProvider.getIfAvailable() != null) {
+            CustomOAuth2UserService customOAuth2UserService = customOAuth2UserServiceProvider.getIfAvailable();
+            OAuth2SuccessHandler oAuth2SuccessHandler = oAuth2SuccessHandlerProvider.getIfAvailable();
+
+            http.oauth2Login(oauth2 -> {
+                if (customOAuth2UserService != null) {
+                    oauth2.userInfoEndpoint(userInfo -> userInfo
+                            .userService(customOAuth2UserService)
+                            .oidcUserService(customOAuth2UserService::loadOidcUser));
+                }
+                if (oAuth2SuccessHandler != null) {
+                    oauth2.successHandler(oAuth2SuccessHandler);
+                }
+            });
+        }
 
         if (jwtAuthenticationFilter != null) {
             http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
