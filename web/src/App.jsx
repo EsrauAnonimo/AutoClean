@@ -2,11 +2,13 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
 import { AppointmentsPage } from './pages/AppointmentsPage'
+import { BookAppointmentPage } from './pages/BookAppointmentPage'
 import { CatalogPage } from './pages/CatalogPage'
 import { CustomersPage } from './pages/CustomersPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
 import { MyVehiclesPage } from './pages/MyVehiclesPage'
+import { OAuth2RedirectPage } from './pages/OAuth2RedirectPage'
 import { PortalDashboardPage } from './pages/PortalDashboardPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ReportsPage } from './pages/ReportsPage'
@@ -108,6 +110,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={CLIENT_ROLES}>
                 <MyVehiclesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/portal/agendar"
+            element={
+              <ProtectedRoute allowedRoles={CLIENT_ROLES}>
+                <BookAppointmentPage />
               </ProtectedRoute>
             }
           />
