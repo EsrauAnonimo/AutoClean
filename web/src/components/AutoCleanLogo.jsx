@@ -28,6 +28,7 @@ export function AutoCleanLogo({
   }
 
   const isLightSurface = tone === 'light'
+  const isSolidWhite = tone === 'white'
 
   return (
     <div className={`inline-flex items-center gap-3 select-none ${className}`}>
@@ -35,7 +36,7 @@ export function AutoCleanLogo({
         viewBox="0 0 48 48"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className={`${iconSizes[size] || iconSizes.md} shrink-0 drop-shadow-sm`}
+        className={`${iconSizes[size] || iconSizes.md} shrink-0 ${isSolidWhite ? '' : 'drop-shadow-sm'}`}
         aria-hidden="true"
       >
         <defs>
@@ -123,7 +124,17 @@ export function AutoCleanLogo({
           }`}
         >
           Auto
-          <span className={isLightSurface ? 'text-[#4F46E5]' : 'text-[#A5F3FC]'}>Clean</span>
+          <span
+            className={
+              isSolidWhite
+                ? 'text-white'
+                : isLightSurface
+                  ? 'text-[#4F46E5]'
+                  : 'text-[#A5F3FC]'
+            }
+          >
+            Clean
+          </span>
         </p>
         {subtitle && (
           <p
