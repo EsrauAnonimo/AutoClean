@@ -16,6 +16,7 @@ import {
   updateVehicleStatus,
 } from '../services/appointmentService'
 import { getEmployees, getServiceTypes } from '../services/catalogService'
+import { toLocalOffsetIsoString } from '../utils/dateTime'
 import { showToast } from '../utils/toast'
 
 const INITIAL_FORM = {
@@ -259,7 +260,7 @@ export function AppointmentsPage() {
         vehicleId: form.vehicleId,
         employeeId: form.employeeId,
         serviceTypeId: form.serviceTypeId,
-        dateTime: new Date(form.dateTime).toISOString(),
+        dateTime: toLocalOffsetIsoString(new Date(form.dateTime)),
         status: 'PENDING',
       })
       setAppointments((prev) => [created, ...prev])

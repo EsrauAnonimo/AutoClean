@@ -1,6 +1,10 @@
 spring:
   application:
     name: autoclean-backend
+  jackson:
+    deserialization:
+      # Preserva el offset horario enviado por el cliente (ej. -05:00) al deserializar OffsetDateTime
+      adjust-dates-to-context-time-zone: false
   datasource:
     url: ${DB_URL}
     username: ${DB_USER}

@@ -6,9 +6,14 @@ import { MainLayout } from '../components/MainLayout'
 import { PlateInput } from '../components/PlateInput'
 import { useAuth } from '../context/AuthContext'
 import { getApiErrorMessage } from '../services/api'
-import { createAppointment, getOccupiedAppointmentSlots } from '../services/appointmentService'
+import {
+  createAppointment,
+  getAppointmentsByCustomer,
+  getOccupiedAppointmentSlots,
+} from '../services/appointmentService'
 import { getEmployees, getServiceTypes } from '../services/catalogService'
 import { getVehicleByPlate, getVehiclesByCustomer } from '../services/vehicleService'
+import { toLocalOffsetIsoString } from '../utils/dateTime'
 import { showToast } from '../utils/toast'
 
 const STEPS = [
@@ -87,7 +92,7 @@ export function BookAppointmentPage() {
   const [searchParams] = useSearchParams()
   const initialPlate = (searchParams.get('plate') || '').toUpperCase()
   const todayIso = useMemo(() => getTodayIsoDate(), [])
-  const [renderTimestamp] = useState(() => Date.now())
+  const [nowMs, setNowMs] = useState(() => Date.now())
 
   const [step, setStep] = useState(1)
   const [plate, setPlate] = useState(initialPlate)
@@ -98,6 +103,7 @@ export function BookAppointmentPage() {
   const [serviceTypes, setServiceTypes] = useState([])
   const [employees, setEmployees] = useState([])
   const [myVehicles, setMyVehicles] = useState([])
+  const [myAppointments, setMyAppointments] = useState([])
   const [catalogLoading, setCatalogLoading] = useState(Boolean(customerId))
 
   const [selectedServiceId, setSelectedServiceId] = useState('')
@@ -105,6 +111,7 @@ export function BookAppointmentPage() {
   const [selectedTime, setSelectedTime] = useState('')
   const [occupiedSlots, setOccupiedSlots] = useState([])
   const [loadingAvailability, setLoadingAvailability] = useState(false)
+  const [availabilityVersion, setAvailabilityVersion] = useState(0)
 
   const [stepError, setStepError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -186,10 +193,15 @@ export function BookAppointmentPage() {
     }
     let active = true
     setLoadingAvailability(true)
-    getOccupiedAppointmentSlots(selectedDate)
-      .then((list) => {
+    setNowMs(Date.now())
+    Promise.all([
+      getOccupiedAppointmentSlots(selectedDate),
+      getAppointmentsByCustomer(customerId).catch(() => []),
+    ])
+      .then(([slotList, customerAppointments]) => {
         if (active) {
-          setOccupiedSlots(Array.isArray(list) ? list : [])
+          setOccupiedSlots(Array.isArray(slotList) ? slotList : [])
+          setMyAppointments(Array.isArray(customerAppointments) ? customerAppointments : [])
         }
       })
       .catch(() => {
@@ -203,7 +215,44 @@ export function BookAppointmentPage() {
     return () => {
       active = false
     }
-  }, [customerId, selectedDate])
+  }, [customerId, selectedDate, step, availabilityVersion])
+
+  useEffect(() => {
+    if (step !== 3) return undefined
+    const timer = setInterval(() => {
+      setNowMs(Date.now())
+    }, 30_000)
+    return () => clearInterval(timer)
+  }, [step])
+
+  const serviceDurationMap = useMemo(() => {
+    const map = new Map()
+    for (const service of serviceTypes) {
+      map.set(service.id, Math.max(Number(service.durationMin) || 60, 1))
+    }
+    return map
+  }, [serviceTypes])
+
+  const hasVehicleConflict = useCallback(
+    (slotTime) => {
+      if (!selectedDate || !resolvedVehicle?.id || !myAppointments.length) return false
+      const candidateStart = new Date(`${selectedDate}T${slotTime}:00`).getTime()
+      if (Number.isNaN(candidateStart)) return false
+      const durationMs = Math.max(Number(selectedService?.durationMin) || 60, 1) * 60_000
+      const candidateEnd = candidateStart + durationMs
+
+      return myAppointments.some((item) => {
+        if (item.vehicleId !== resolvedVehicle.id) return false
+        if (item.status === 'CANCELLED' || item.status === 'FINISHED') return false
+        const start = new Date(item.dateTime).getTime()
+        if (Number.isNaN(start)) return false
+        const itemDurationMin = serviceDurationMap.get(item.serviceTypeId) || 60
+        const end = start + itemDurationMin * 60_000
+        return candidateStart < end && start < candidateEnd
+      })
+    },
+    [myAppointments, resolvedVehicle, selectedDate, selectedService?.durationMin, serviceDurationMap],
+  )
 
   const findAvailableEmployee = useCallback(
     (dateStr, timeStr) => {
@@ -230,32 +279,27 @@ export function BookAppointmentPage() {
     [employees, occupiedSlots, selectedService?.durationMin],
   )
 
-  const isSlotOccupied = useCallback(
-    (slotTime) => {
-      if (!selectedDate || !occupiedSlots.length || !employees.length) return false
-      return findAvailableEmployee(selectedDate, slotTime) === null
-    },
-    [employees.length, findAvailableEmployee, occupiedSlots.length, selectedDate],
-  )
-
   const getSlotStatus = (slot) => {
     if (!slot.available) {
-      return { disabled: true, subtitle: slot.reason || slot.period }
+      return { disabled: true, subtitle: slot.reason || slot.period, busy: false }
     }
     if (!selectedDate) {
-      return { disabled: false, subtitle: slot.period }
+      return { disabled: false, subtitle: slot.period, busy: false }
     }
     const candidate = new Date(`${selectedDate}T${slot.time}:00`)
-    if (Number.isNaN(candidate.getTime()) || candidate.getTime() <= renderTimestamp) {
-      return { disabled: true, subtitle: 'No disponible' }
+    if (Number.isNaN(candidate.getTime()) || candidate.getTime() <= nowMs) {
+      return { disabled: true, subtitle: 'No disponible', busy: false }
     }
     if (!isWithinOperatingHours(candidate)) {
-      return { disabled: true, subtitle: 'Fuera de horario' }
+      return { disabled: true, subtitle: 'Fuera de horario', busy: false }
     }
-    if (isSlotOccupied(slot.time)) {
-      return { disabled: true, subtitle: 'Ocupado' }
+    if (hasVehicleConflict(slot.time)) {
+      return { disabled: true, subtitle: 'Ya tienes cita', busy: true }
     }
-    return { disabled: false, subtitle: slot.period }
+    if (occupiedSlots.length > 0 && employees.length > 0 && findAvailableEmployee(selectedDate, slot.time) === null) {
+      return { disabled: true, subtitle: 'Sin cupo', busy: true }
+    }
+    return { disabled: false, subtitle: slot.period, busy: false }
   }
 
   const handleNextStep = async () => {
@@ -301,6 +345,10 @@ export function BookAppointmentPage() {
         setStepError('En este momento no hay disponibilidad de agenda configurada. Intenta más tarde.')
         return
       }
+      if (hasVehicleConflict(selectedTime)) {
+        setStepError('Tu vehículo ya tiene otra cita programada en ese horario.')
+        return
+      }
       if (!findAvailableEmployee(selectedDate, selectedTime)) {
         setStepError('Esta franja ya no tiene especialistas disponibles. Elige otro horario.')
         return
@@ -311,6 +359,12 @@ export function BookAppointmentPage() {
 
   const handleConfirmBooking = async () => {
     if (!customerId || !resolvedVehicle?.id || !selectedServiceId) {
+      return
+    }
+
+    if (hasVehicleConflict(selectedTime)) {
+      setStepError('Tu vehículo ya tiene otra cita programada en ese horario.')
+      setStep(3)
       return
     }
 
@@ -336,10 +390,11 @@ export function BookAppointmentPage() {
         vehicleId: resolvedVehicle.id,
         employeeId: assignedEmployee.id,
         serviceTypeId: selectedServiceId,
-        dateTime: parsedDateTime.toISOString(),
+        dateTime: toLocalOffsetIsoString(parsedDateTime),
         status: 'PENDING',
       })
       setCreatedAppointment(created)
+      setAvailabilityVersion((prev) => prev + 1)
       showToast({
         type: 'success',
         title: 'Cita confirmada',
@@ -664,7 +719,7 @@ export function BookAppointmentPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {TIME_SLOTS.map((slot) => {
-                        const { disabled, subtitle } = getSlotStatus(slot)
+                        const { disabled, subtitle, busy } = getSlotStatus(slot)
                         const active = selectedTime === slot.time && !disabled
                         return (
                           <button
@@ -688,7 +743,7 @@ export function BookAppointmentPage() {
                             <span
                               className={[
                                 'block text-[10px]',
-                                active ? 'text-indigo-100' : subtitle === 'Ocupado' ? 'font-semibold text-[#B91C1C]' : 'text-[#5B5F7A]',
+                                active ? 'text-indigo-100' : busy ? 'font-semibold text-[#B91C1C]' : 'text-[#5B5F7A]',
                               ].join(' ')}
                             >
                               {subtitle}
