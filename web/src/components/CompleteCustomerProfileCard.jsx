@@ -8,16 +8,18 @@ import { Input } from './Input'
 const PHONE_REGEX = /^[+]?[0-9\s\-()]{7,20}$/
 
 /**
- * Banner discreto para completar nombre y teléfono cuando una cuenta CLIENTE
- * aún no tiene perfil vinculado tras ingresar con Google.
+ * Banner compacto "Completa tu perfil" con barra de progreso y acción única.
  */
 export function CompleteCustomerProfileCard({ onCompleted }) {
-  const { user, completeProfile } = useAuth()
+  const { completeProfile } = useAuth()
   const [expanded, setExpanded] = useState(false)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const filledFields = (name.trim() ? 1 : 0) + (PHONE_REGEX.test(phone.trim()) ? 1 : 0)
+  const progressPct = expanded ? Math.round(((1 + filledFields) / 3) * 100) : 33
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -36,8 +38,8 @@ export function CompleteCustomerProfileCard({ onCompleted }) {
       const updatedSession = await completeProfile({ name: cleanName, phone: cleanPhone })
       showToast({
         type: 'success',
-        title: 'Perfil activado',
-        description: 'Ya puedes registrar vehículos y agendar citas.',
+        title: 'Perfil completado',
+        description: 'Ya se activaron tus vehículos, citas y seguimiento en vivo.',
       })
       if (onCompleted) {
         onCompleted(updatedSession)
@@ -50,41 +52,49 @@ export function CompleteCustomerProfileCard({ onCompleted }) {
   }
 
   return (
-    <section className="rounded-2xl border border-[#E4E6F2] bg-white p-4 shadow-card sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EDE9FE] text-sm font-bold text-[#4F46E5]">
-            ✦
-          </span>
-          <div>
-            <p className="text-[14px] font-semibold text-[#1E1B4B]">Completa tu perfil de cliente</p>
-            <p className="text-[13px] text-[#5B5F7A]">
-              Agrega nombre y teléfono para {user?.email} y habilita reservas en segundos.
-            </p>
+    <section className="rounded-2xl border border-[#E4E6F2] bg-white p-5 shadow-card">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="min-w-[220px] flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[15px] font-semibold text-[#1E1B4B]">Completa tu perfil</p>
+            <span className="text-xs font-semibold tabular-nums text-[#4F46E5]">
+              {progressPct}%
+            </span>
           </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#F5F6FB]">
+            <div
+              className="h-full rounded-full bg-[#4F46E5] transition-all duration-300"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <p className="mt-2 text-xs font-normal text-[#5B5F7A]">
+            Agrega tu nombre y teléfono para activar reservas y seguimiento en vivo.
+          </p>
         </div>
+
         {!expanded && (
-          <Button variant="secondary" onClick={() => setExpanded(true)}>
+          <Button size="l" onClick={() => setExpanded(true)}>
             Completar perfil
           </Button>
         )}
       </div>
 
       {expanded && (
-        <form onSubmit={handleSubmit} className="mt-4 space-y-3 border-t border-[#E4E6F2] pt-4">
+        <form onSubmit={handleSubmit} className="mt-4 space-y-4 border-t border-[#E4E6F2] pt-4">
           {errorMessage && (
             <div
               role="alert"
-              className="rounded-xl border border-[#FECACA] bg-[#FEE2E2] px-3.5 py-2.5 text-xs font-medium text-[#B91C1C]"
+              className="rounded-xl border border-[#FECACA] bg-[#FEE2E2] px-3.5 py-2.5 text-xs font-semibold text-[#B91C1C]"
             >
               {errorMessage}
             </div>
           )}
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <Input
               id="profileName"
               label="Nombre completo"
+              size="l"
               placeholder="Camila Restrepo"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -93,19 +103,27 @@ export function CompleteCustomerProfileCard({ onCompleted }) {
             <Input
               id="profilePhone"
               label="Teléfono"
+              size="l"
               placeholder="+57 310 458 9210"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               required
             />
-            <div className="flex items-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => setExpanded(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" loading={submitting} className="flex-1">
-                Guardar
-              </Button>
-            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              size="l"
+              onClick={() => setExpanded(false)}
+              disabled={submitting}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" size="l" loading={submitting}>
+              Guardar perfil
+            </Button>
           </div>
         </form>
       )}

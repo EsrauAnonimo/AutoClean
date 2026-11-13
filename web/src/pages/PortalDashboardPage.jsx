@@ -6,6 +6,7 @@ import { MainLayout } from '../components/MainLayout'
 import { VehicleStatusBadge } from '../components/VehicleStatusBadge'
 import { useAuth } from '../context/AuthContext'
 import { getAppointmentsByCustomer } from '../services/appointmentService'
+import { getVehiclesByCustomer } from '../services/vehicleService'
 import { VEHICLE_STATUS_ORDER, getVehicleStatusMeta } from '../utils/vehicleStatus'
 
 function formatShortDateTime(isoValue) {
@@ -26,22 +27,45 @@ function formatShortDateTime(isoValue) {
   }).format(date)
 }
 
-function getGreetingName(email) {
-  if (!email) {
-    return 'conductor'
-  }
-  const prefix = email.split('@')[0] || 'conductor'
-  return prefix.charAt(0).toUpperCase() + prefix.slice(1)
+function LockIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <rect x="4" y="11" width="16" height="10" rx="2.5" />
+      <path d="M8 11V7a4 4 0 1 1 8 0v4" />
+    </svg>
+  )
+}
+
+function LockedPortalCard({ title, description }) {
+  return (
+    <article className="flex flex-col justify-between rounded-2xl border border-dashed border-[#E4E6F2] bg-white/80 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-[17px] font-semibold text-[#1E1B4B]">{title}</h2>
+          <p className="mt-1 text-xs font-normal text-[#5B5F7A]">{description}</p>
+        </div>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F5F6FB] text-[#5B5F7A]">
+          <LockIcon />
+        </span>
+      </div>
+      <div className="mt-5 inline-flex w-fit items-center gap-1.5 rounded-full bg-[#F5F6FB] px-3 py-1 text-xs font-semibold text-[#5B5F7A]">
+        <LockIcon />
+        <span>Se activa al completar tu perfil</span>
+      </div>
+    </article>
+  )
 }
 
 /**
- * Pantalla de inicio del Portal del Cliente (mobile-first).
- * Destaca el progreso en vivo del vehículo, acceso rápido a agendar y próxima cita.
+ * Inicio del Portal del Cliente:
+ * - Si el perfil está incompleto: banner compacto con progreso + 3 tarjetas grandes bloqueadas.
+ * - Si el perfil está completo: datos reales (Estado en vivo, Próxima cita, Mis vehículos) y botón 52px.
  */
 export function PortalDashboardPage() {
   const { user } = useAuth()
   const customerId = user?.customerId
   const [appointments, setAppointments] = useState([])
+  const [vehicles, setVehicles] = useState([])
   const [loading, setLoading] = useState(Boolean(customerId))
 
   useEffect(() => {
@@ -50,18 +74,24 @@ export function PortalDashboardPage() {
     async function load() {
       if (!customerId) {
         setAppointments([])
+        setVehicles([])
         setLoading(false)
         return
       }
       setLoading(true)
       try {
-        const data = await getAppointmentsByCustomer(customerId)
+        const [appointmentList, vehicleList] = await Promise.all([
+          getAppointmentsByCustomer(customerId),
+          getVehiclesByCustomer(customerId),
+        ])
         if (!cancelled) {
-          setAppointments(Array.isArray(data) ? data : [])
+          setAppointments(Array.isArray(appointmentList) ? appointmentList : [])
+          setVehicles(Array.isArray(vehicleList) ? vehicleList : [])
         }
       } catch {
         if (!cancelled) {
           setAppointments([])
+          setVehicles([])
         }
       } finally {
         if (!cancelled) {
@@ -94,209 +124,180 @@ export function PortalDashboardPage() {
   return (
     <MainLayout>
       <div className="space-y-5">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-[13px] font-medium text-[#5B5F7A]">Tu resumen en AutoClean</p>
-            <h1 className="text-[26px] font-bold tracking-tight text-[#1E1B4B]">
-              Hola, {getGreetingName(user?.email)}
-            </h1>
-          </div>
-          {customerId && (
-            <Link
-              to="/portal/agendar"
-              className="hidden h-11 items-center gap-2 rounded-xl bg-[#4F46E5] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#4338CA] lg:inline-flex"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              Agendar nueva cita
-            </Link>
-          )}
-        </div>
-
-        {!customerId && <CompleteCustomerProfileCard />}
-
-        {customerId && (
+        {!customerId ? (
           <>
-            {loading ? (
-              <div className="animate-pulse rounded-2xl border border-[#E4E6F2] bg-white p-6">
-                <div className="h-4 w-32 rounded bg-[#E4E6F2]" />
-                <div className="mt-3 h-7 w-56 rounded bg-[#E4E6F2]" />
-                <div className="mt-5 grid grid-cols-5 gap-2">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <div key={n} className="h-2 rounded-full bg-[#E4E6F2]" />
-                  ))}
-                </div>
-              </div>
-            ) : activeLiveAppointment ? (
-              <section className="overflow-hidden rounded-2xl border border-[#E4E6F2] bg-white shadow-card">
-                <div className="bg-linear-to-r from-[#1E1B4B] via-[#312E81] to-[#4F46E5] p-5 text-white sm:p-6">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white backdrop-blur-xs">
-                      <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-300" />
-                      Seguimiento en vivo
-                    </span>
-                    <span className="rounded-lg border border-amber-300/60 bg-amber-300 px-2.5 py-0.5 font-mono text-xs font-extrabold tracking-widest text-[#1E1B4B]">
-                      {activeLiveAppointment.vehiclePlate || 'VEHÍCULO'}
-                    </span>
-                  </div>
-
-                  <p className="mt-4 text-xs font-medium uppercase tracking-wider text-indigo-200">
-                    Tu auto está en
-                  </p>
-                  <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
-                    <h2 className="text-2xl font-bold text-white">{liveMeta.label}</h2>
-                    <VehicleStatusBadge status={activeLiveAppointment.vehicleStatus ?? 'RECEIVED'} />
-                  </div>
-                  <p className="mt-1.5 text-sm text-indigo-100">
-                    {activeLiveAppointment.serviceName || 'Servicio de detailing'} ·{' '}
-                    {activeLiveAppointment.vehicleDescription || 'Vehículo registrado'}
-                  </p>
-
-                  <div className="mt-5">
-                    <div className="grid grid-cols-5 gap-1.5">
-                      {VEHICLE_STATUS_ORDER.map((stepStatus, idx) => {
-                        const completed = idx + 1 <= liveMeta.step
-                        return (
-                          <div key={stepStatus} className="space-y-1">
-                            <div
-                              className={[
-                                'h-2 rounded-full transition-all',
-                                completed ? 'bg-emerald-300' : 'bg-white/20',
-                              ].join(' ')}
-                            />
-                            <p className="truncate text-[10px] font-medium text-indigo-100/90">
-                              {getVehicleStatusMeta(stepStatus).label}
-                            </p>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-3 bg-white px-5 py-3.5 sm:px-6">
-                  <span className="text-xs text-[#5B5F7A]">
-                    Especialista:{' '}
-                    <strong className="font-semibold text-[#1E1B4B]">
-                      {activeLiveAppointment.employeeName || 'Por asignar'}
-                    </strong>
-                  </span>
-                  <Link
-                    to="/portal/historial"
-                    className="text-xs font-semibold text-[#4F46E5] hover:text-[#4338CA]"
-                  >
-                    Ver timeline completo →
-                  </Link>
-                </div>
-              </section>
-            ) : (
-              <section className="rounded-2xl border border-[#E4E6F2] bg-white p-6 shadow-card">
-                <span className="inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-[#4F46E5]">
-                  Sin servicios en curso
-                </span>
-                <h2 className="mt-3 text-lg font-semibold text-[#1E1B4B]">
-                  ¿Listo para consentir tu vehículo?
-                </h2>
-                <p className="mt-1 text-sm text-[#5B5F7A]">
-                  Agenda en segundos ingresando la placa de tu auto y sigue cada etapa en tiempo real.
-                </p>
-              </section>
-            )}
-
-            <Link
-              to="/portal/agendar"
-              className="flex h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-[#4F46E5] px-6 text-base font-semibold text-white shadow-sm transition hover:bg-[#4338CA] lg:hidden"
-            >
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              Agendar nueva cita
-            </Link>
+            <CompleteCustomerProfileCard />
 
             <section className="grid gap-4 lg:grid-cols-3">
-              <div className="rounded-2xl border border-[#E4E6F2] bg-white p-5 shadow-card lg:col-span-2">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-[18px] font-semibold text-[#1E1B4B]">Próxima cita</h3>
+              <LockedPortalCard
+                title="Estado de tu auto en vivo"
+                description="Observa en tiempo real cuando tu vehículo pasa por lavado, detailing y entrega."
+              />
+              <LockedPortalCard
+                title="Próxima cita"
+                description="Consulta la hora reservada, especialista asignado y confirmación de efectivo."
+              />
+              <LockedPortalCard
+                title="Mis vehículos"
+                description="Guarda tus placas una sola vez para agendar en segundos."
+              />
+            </section>
+          </>
+        ) : (
+          <>
+            {/* Única acción primaria de la pantalla: Agendar nueva cita (52px) */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h1 className="text-[22px] font-semibold text-[#1E1B4B]">Tu resumen</h1>
+                <p className="text-sm font-normal text-[#5B5F7A]">
+                  Estado de tus vehículos y próximas reservas
+                </p>
+              </div>
+              <Link
+                to="/portal/agendar"
+                className="inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-[#4F46E5] px-6 text-[15px] font-semibold text-white transition hover:bg-[#4338CA] sm:w-auto"
+              >
+                Agendar nueva cita
+              </Link>
+            </div>
+
+            {loading ? (
+              <div className="grid gap-4 lg:grid-cols-3">
+                {[1, 2, 3].map((n) => (
+                  <div
+                    key={n}
+                    className="h-44 animate-pulse rounded-2xl border border-[#E4E6F2] bg-white p-6"
+                  />
+                ))}
+              </div>
+            ) : (
+              <section className="grid gap-4 lg:grid-cols-3">
+                {/* Tarjeta 1: Estado de tu auto en vivo */}
+                <article className="flex flex-col justify-between rounded-2xl border border-[#E4E6F2] bg-white p-5 shadow-card">
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <h2 className="text-[17px] font-semibold text-[#1E1B4B]">
+                        Estado de tu auto en vivo
+                      </h2>
+                      {activeLiveAppointment && (
+                        <VehicleStatusBadge
+                          status={activeLiveAppointment.vehicleStatus ?? 'RECEIVED'}
+                        />
+                      )}
+                    </div>
+
+                    {activeLiveAppointment ? (
+                      <>
+                        <p className="mt-3 text-sm font-semibold text-[#1E1B4B]">
+                          {activeLiveAppointment.vehiclePlate} · {liveMeta.label}
+                        </p>
+                        <p className="mt-0.5 text-xs font-normal text-[#5B5F7A]">
+                          {activeLiveAppointment.serviceName || 'Servicio activo'}
+                        </p>
+
+                        <div className="mt-4 grid grid-cols-5 gap-1.5">
+                          {VEHICLE_STATUS_ORDER.map((stepStatus, idx) => (
+                            <div
+                              key={stepStatus}
+                              className={`h-2 rounded-full ${
+                                idx + 1 <= liveMeta.step ? 'bg-[#8B5CF6]' : 'bg-[#E4E6F2]'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <p className="mt-3 text-sm font-normal text-[#5B5F7A]">
+                        Sin servicios en curso en este momento.
+                      </p>
+                    )}
+                  </div>
+
                   <Link
                     to="/portal/historial"
-                    className="text-xs font-semibold text-[#4F46E5] hover:text-[#4338CA]"
+                    className="mt-5 inline-flex h-[52px] w-full items-center justify-center rounded-xl border border-[#E4E6F2] bg-[#F5F6FB] px-4 text-sm font-semibold text-[#1E1B4B] transition hover:bg-[#E4E6F2]/60"
                   >
-                    Historial
+                    Ver historial en vivo
                   </Link>
-                </div>
+                </article>
 
-                {nextAppointment ? (
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#E4E6F2] bg-[#F5F6FB]/70 p-4">
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-md bg-amber-300 px-2 py-0.5 font-mono text-xs font-bold tracking-wider text-[#1E1B4B]">
-                          {nextAppointment.vehiclePlate}
-                        </span>
-                        <AppointmentStatusBadge status={nextAppointment.status} />
+                {/* Tarjeta 2: Próxima cita */}
+                <article className="flex flex-col justify-between rounded-2xl border border-[#E4E6F2] bg-white p-5 shadow-card">
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <h2 className="text-[17px] font-semibold text-[#1E1B4B]">Próxima cita</h2>
+                      {nextAppointment && <AppointmentStatusBadge status={nextAppointment.status} />}
+                    </div>
+
+                    {nextAppointment ? (
+                      <div className="mt-3 space-y-1">
+                        <p className="text-sm font-semibold text-[#1E1B4B]">
+                          {nextAppointment.serviceName}
+                        </p>
+                        <p className="text-xs font-normal text-[#5B5F7A]">
+                          {formatShortDateTime(nextAppointment.dateTime)}
+                        </p>
+                        <p className="text-xs font-normal text-[#5B5F7A]">
+                          Placa {nextAppointment.vehiclePlate} · {nextAppointment.employeeName}
+                        </p>
                       </div>
-                      <p className="text-sm font-semibold text-[#1E1B4B]">
-                        {nextAppointment.serviceName}
+                    ) : (
+                      <p className="mt-3 text-sm font-normal text-[#5B5F7A]">
+                        No tienes citas próximas programadas.
                       </p>
-                      <p className="text-xs text-[#5B5F7A]">
-                        {formatShortDateTime(nextAppointment.dateTime)} · {nextAppointment.employeeName}
+                    )}
+                  </div>
+
+                  <Link
+                    to="/portal/historial"
+                    className="mt-5 inline-flex h-[52px] w-full items-center justify-center rounded-xl border border-[#E4E6F2] bg-[#F5F6FB] px-4 text-sm font-semibold text-[#1E1B4B] transition hover:bg-[#E4E6F2]/60"
+                  >
+                    Gestionar citas
+                  </Link>
+                </article>
+
+                {/* Tarjeta 3: Mis vehículos */}
+                <article className="flex flex-col justify-between rounded-2xl border border-[#E4E6F2] bg-white p-5 shadow-card">
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <h2 className="text-[17px] font-semibold text-[#1E1B4B]">Mis vehículos</h2>
+                      <span className="rounded-full bg-[#EDE9FE] px-2.5 py-0.5 text-xs font-semibold tabular-nums text-[#6D28D9]">
+                        {vehicles.length}
+                      </span>
+                    </div>
+
+                    {vehicles.length > 0 ? (
+                      <div className="mt-3 space-y-2">
+                        {vehicles.slice(0, 2).map((vehicle) => (
+                          <div
+                            key={vehicle.id}
+                            className="flex items-center justify-between rounded-xl bg-[#F5F6FB] px-3 py-2 text-xs"
+                          >
+                            <span className="font-semibold text-[#1E1B4B]">
+                              {vehicle.brand} {vehicle.model}
+                            </span>
+                            <span className="rounded bg-[#FACC15] px-2 py-0.5 font-mono font-semibold text-[#1E1B4B]">
+                              {vehicle.plate}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-sm font-normal text-[#5B5F7A]">
+                        Aún no has guardado vehículos en tu cuenta.
                       </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-[#5B5F7A]">Pago en efectivo al finalizar</p>
-                      <Link
-                        to="/portal/historial"
-                        className="mt-2 inline-flex rounded-lg border border-[#E4E6F2] bg-white px-3 py-1.5 text-xs font-semibold text-[#1E1B4B] hover:bg-[#F5F6FB]"
-                      >
-                        Gestionar cita
-                      </Link>
-                    </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="mt-4 rounded-xl border border-dashed border-[#E4E6F2] p-6 text-center">
-                    <p className="text-sm font-medium text-[#1E1B4B]">No tienes citas programadas</p>
-                    <p className="mt-1 text-xs text-[#5B5F7A]">
-                      Atendemos de 7:00 a. m. a 12:00 p. m. y de 2:30 p. m. a 9:00 p. m.
-                    </p>
-                  </div>
-                )}
-              </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                <Link
-                  to="/portal/mis-vehiculos"
-                  className="flex items-center justify-between rounded-2xl border border-[#E4E6F2] bg-white p-5 shadow-card transition hover:border-[#4F46E5]/40"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-[#1E1B4B]">Mis Vehículos</p>
-                    <p className="mt-0.5 text-xs text-[#5B5F7A]">Administra tus placas y autos</p>
-                  </div>
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-[#4F46E5]">
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-                      <path d="M5 17h14v-5l-2-5H7l-2 5v5z" />
-                      <circle cx="7.5" cy="17" r="1.5" />
-                      <circle cx="16.5" cy="17" r="1.5" />
-                    </svg>
-                  </span>
-                </Link>
-
-                <Link
-                  to="/portal/historial"
-                  className="flex items-center justify-between rounded-2xl border border-[#E4E6F2] bg-white p-5 shadow-card transition hover:border-[#8B5CF6]/40"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-[#1E1B4B]">Historial y Estado</p>
-                    <p className="mt-0.5 text-xs text-[#5B5F7A]">Sigue el lavado en vivo</p>
-                  </div>
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-[#6D28D9]">
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-                      <circle cx="12" cy="12" r="9" />
-                      <path d="M12 7v5l3 2" />
-                    </svg>
-                  </span>
-                </Link>
-              </div>
-            </section>
+                  <Link
+                    to="/portal/mis-vehiculos"
+                    className="mt-5 inline-flex h-[52px] w-full items-center justify-center rounded-xl border border-[#E4E6F2] bg-[#F5F6FB] px-4 text-sm font-semibold text-[#1E1B4B] transition hover:bg-[#E4E6F2]/60"
+                  >
+                    Administrar vehículos
+                  </Link>
+                </article>
+              </section>
+            )}
           </>
         )}
       </div>

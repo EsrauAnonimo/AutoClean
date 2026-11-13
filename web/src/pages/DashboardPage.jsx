@@ -10,6 +10,12 @@ import { getAppointments } from '../services/appointmentService'
 import { getServiceTypes } from '../services/catalogService'
 import { getSupplies } from '../services/supplyService'
 
+const PERIOD_OPTIONS = [
+  { key: 'today', label: 'Hoy' },
+  { key: 'week', label: 'Semana' },
+  { key: 'month', label: 'Mes' },
+]
+
 function formatCop(value) {
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
@@ -34,12 +40,45 @@ function formatTime(value) {
   return new Intl.DateTimeFormat('es-CO', { timeStyle: 'short' }).format(d)
 }
 
+function capitalizeName(user) {
+  const raw = user?.name?.trim() || (user?.email ? user.email.split('@')[0] : '')
+  if (!raw) return 'Equipo'
+  const clean = raw.replace(/[._-]+/g, ' ').replace(/\d+/g, '').trim()
+  const firstWord = clean.split(/\s+/)[0] || 'Equipo'
+  return firstWord.charAt(0).toUpperCase() + firstWord.slice(1).toLowerCase()
+}
+
+function getPeriodBounds(periodKey, now) {
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+
+  if (periodKey === 'week') {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0)
+    const prevEnd = new Date(start.getTime() - 1)
+    const prevStart = new Date(prevEnd.getFullYear(), prevEnd.getMonth(), prevEnd.getDate() - 6, 0, 0, 0, 0)
+    return { start, end, prevStart, prevEnd, comparisonLabel: 'vs. semana ant.' }
+  }
+
+  if (periodKey === 'month') {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
+    const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0)
+    const prevEnd = new Date(start.getTime() - 1)
+    return { start, end, prevStart, prevEnd, comparisonLabel: 'vs. mes ant.' }
+  }
+
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+  const prevStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0)
+  const prevEnd = new Date(start.getTime() - 1)
+  return { start, end, prevStart, prevEnd, comparisonLabel: 'vs. ayer' }
+}
+
 /**
- * Dashboard Ejecutivo Admin con KPIs del día, gráficas semanales reales y próximas citas.
+ * Dashboard Ejecutivo Admin con KPIs con íconos suaves, control segmentado (Hoy/Semana/Mes)
+ * y estados vacíos claros para gráficas sin registros.
  */
 export function DashboardPage() {
   const { user } = useAuth()
-  const [selectedDate, setSelectedDate] = useState(() => getLocalDateKey(new Date()))
+  const [referenceDate] = useState(() => new Date())
+  const [periodMode, setPeriodMode] = useState('today')
   const [appointments, setAppointments] = useState([])
   const [services, setServices] = useState([])
   const [supplies, setSupplies] = useState([])
@@ -59,7 +98,7 @@ export function DashboardPage() {
       setServices(Array.isArray(serviceList) ? serviceList : [])
       setSupplies(Array.isArray(supplyList) ? supplyList : [])
     } catch (error) {
-      setErrorMessage(getApiErrorMessage(error, 'No fue posible cargar el resumen del día.'))
+      setErrorMessage(getApiErrorMessage(error, 'No fue posible cargar el resumen operativo.'))
     } finally {
       setLoading(false)
     }
@@ -78,16 +117,24 @@ export function DashboardPage() {
   }, [services])
 
   const metrics = useMemo(() => {
-    const dayItems = appointments.filter((item) => getLocalDateKey(item.dateTime) === selectedDate)
-    const prevDateObj = new Date(`${selectedDate}T12:00:00`)
-    prevDateObj.setDate(prevDateObj.getDate() - 1)
-    const prevKey = getLocalDateKey(prevDateObj)
-    const prevItems = appointments.filter((item) => getLocalDateKey(item.dateTime) === prevKey)
+    const { start, end, prevStart, prevEnd, comparisonLabel } = getPeriodBounds(
+      periodMode,
+      referenceDate,
+    )
+    const todayKey = getLocalDateKey(referenceDate)
 
-    const validDayItems = dayItems.filter((item) => item.status !== 'CANCELLED')
+    const inRange = (isoDate, rangeStart, rangeEnd) => {
+      const d = new Date(isoDate)
+      return !Number.isNaN(d.getTime()) && d >= rangeStart && d <= rangeEnd
+    }
+
+    const periodItems = appointments.filter((item) => inRange(item.dateTime, start, end))
+    const prevItems = appointments.filter((item) => inRange(item.dateTime, prevStart, prevEnd))
+
+    const validPeriodItems = periodItems.filter((item) => item.status !== 'CANCELLED')
     const validPrevItems = prevItems.filter((item) => item.status !== 'CANCELLED')
 
-    const dayRevenue = validDayItems.reduce(
+    const periodRevenue = validPeriodItems.reduce(
       (sum, item) => sum + (priceByServiceId.get(item.serviceTypeId) || 0),
       0,
     )
@@ -97,24 +144,22 @@ export function DashboardPage() {
     )
 
     const inProcess = appointments.filter((item) => item.status === 'IN_PROGRESS')
-    const washingCount = inProcess.filter((item) => item.vehicleStatus === 'WASHING').length
-    const detailingCount = inProcess.filter((item) => item.vehicleStatus === 'DETAILING').length
     const readyCount = appointments.filter(
       (item) => item.vehicleStatus === 'READY' && item.status !== 'CANCELLED',
     ).length
 
     const serviceCounts = new Map()
-    for (const item of appointments.filter((a) => a.status !== 'CANCELLED')) {
-      const name = item.serviceTypeName || 'Servicio'
+    for (const item of validPeriodItems) {
+      const name = item.serviceTypeName || item.serviceName || 'Servicio'
       serviceCounts.set(name, (serviceCounts.get(name) || 0) + 1)
     }
     const sortedServices = [...serviceCounts.entries()].sort((a, b) => b[1] - a[1])
-    const topService = sortedServices[0] || ['Sin datos', 0]
+    const topService = sortedServices[0] || ['Sin registros', 0]
     const totalServicesCount = sortedServices.reduce((acc, [, c]) => acc + c, 0) || 1
 
     const weekly = []
     for (let offset = 6; offset >= 0; offset -= 1) {
-      const date = new Date(`${selectedDate}T12:00:00`)
+      const date = new Date(referenceDate)
       date.setDate(date.getDate() - offset)
       const key = getLocalDateKey(date)
       const dayLabel = new Intl.DateTimeFormat('es-CO', { weekday: 'short' }).format(date)
@@ -123,6 +168,7 @@ export function DashboardPage() {
         .reduce((sum, a) => sum + (priceByServiceId.get(a.serviceTypeId) || 0), 0)
       weekly.push({ key, label: dayLabel, total })
     }
+    const hasWeeklyRevenue = weekly.some((d) => d.total > 0)
     const maxWeek = Math.max(...weekly.map((d) => d.total), 1)
 
     const upcoming = appointments
@@ -133,12 +179,14 @@ export function DashboardPage() {
     const lowSupplies = supplies.filter((s) => Number(s.stock) <= 5)
 
     return {
-      dayCount: dayItems.length,
-      countDiff: dayItems.length - prevItems.length,
-      dayRevenue,
-      revenueDiff: dayRevenue - prevRevenue,
+      todayKey,
+      comparisonLabel,
+      periodCount: periodItems.length,
+      countDiff: periodItems.length - prevItems.length,
+      periodRevenue,
+      revenueDiff: periodRevenue - prevRevenue,
       inProcessCount: inProcess.length,
-      inProcessBreakdown: `${washingCount} lavando · ${detailingCount} detallando · ${readyCount} listos`,
+      readyCount,
       topServiceName: topService[0],
       topServiceCount: topService[1],
       serviceBreakdown: sortedServices.slice(0, 4).map(([name, count]) => ({
@@ -147,40 +195,62 @@ export function DashboardPage() {
         pct: Math.round((count * 100) / totalServicesCount),
       })),
       weekly,
+      hasWeeklyRevenue,
       maxWeek,
       upcoming,
       lowSupplies,
     }
-  }, [appointments, priceByServiceId, selectedDate, supplies])
+  }, [appointments, periodMode, priceByServiceId, referenceDate, supplies])
 
-  const displayName = user?.email ? user.email.split('@')[0] : 'Equipo'
+  const displayName = capitalizeName(user)
 
   return (
     <MainLayout>
       <div className="space-y-6">
-        {/* Cabecera saludo + selector de fecha */}
+        {/* Cabecera saludo + control segmentado + botón principal + Nueva cita */}
         <section className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-[28px] leading-[34px] font-bold tracking-tight text-[#1E1B4B]">
+            <h1 className="text-[28px] leading-[34px] font-semibold tracking-tight text-[#1E1B4B]">
               Buenos días, {displayName}
             </h1>
-            <p className="mt-1 text-[15px] text-[#5B5F7A]">
+            <p className="mt-1 text-[15px] font-normal text-[#5B5F7A]">
               Resumen operativo del centro de lavado y detailing
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2.5">
-            <input
-              type="date"
-              aria-label="Fecha del resumen"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="h-[44px] rounded-xl border border-[#E4E6F2] bg-white px-3.5 text-sm font-medium text-[#1E1B4B] outline-none focus:border-[#4F46E5] focus:ring-4 focus:ring-[#4F46E5]/15"
-            />
-            <Link
-              to="/appointments"
-              className="inline-flex h-[44px] items-center justify-center rounded-xl bg-[#4F46E5] px-4 text-sm font-semibold text-white transition hover:bg-[#4338CA]"
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div
+              role="group"
+              aria-label="Selector de periodo"
+              className="inline-flex h-[44px] items-center rounded-xl border border-[#E4E6F2] bg-white p-1"
             >
-              Abrir Agenda
+              {PERIOD_OPTIONS.map((option) => {
+                const active = periodMode === option.key
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => setPeriodMode(option.key)}
+                    className={`h-full rounded-lg px-3.5 text-xs font-semibold transition ${
+                      active
+                        ? 'bg-[#4F46E5] text-white'
+                        : 'text-[#5B5F7A] hover:bg-[#F5F6FB] hover:text-[#1E1B4B]'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            <Link
+              to="/appointments?new=1"
+              className="inline-flex h-[44px] items-center justify-center gap-2 rounded-xl bg-[#4F46E5] px-4 text-sm font-semibold text-white transition hover:bg-[#4338CA]"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              + Nueva cita
             </Link>
           </div>
         </section>
@@ -197,12 +267,12 @@ export function DashboardPage() {
           </div>
         )}
 
-        {/* Alerta de inventario bajo si aplica */}
         {!loading && metrics.lowSupplies.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#F59E0B]/30 bg-[#FEF3C7] px-5 py-3.5 text-sm text-[#B45309]">
             <span>
-              <strong>Alerta de inventario:</strong> {metrics.lowSupplies.length} insumo(s) con
-              stock bajo ({metrics.lowSupplies.map((s) => s.name).join(', ')}).
+              <strong className="font-semibold">Alerta de inventario:</strong>{' '}
+              {metrics.lowSupplies.length} insumo(s) con stock bajo (
+              {metrics.lowSupplies.map((s) => s.name).join(', ')}).
             </span>
             <Link to="/supplies" className="font-semibold underline hover:text-[#92400E]">
               Revisar insumos →
@@ -210,115 +280,204 @@ export function DashboardPage() {
           </div>
         )}
 
-        {/* 4 KPIs con variación vs ayer */}
+        {/* 4 tarjetas KPI: cuadro 40px con fondo suave (violeta, verde, ámbar, azul), cifra 32px/600 y badge variación */}
         {loading ? (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {[1, 2, 3, 4].map((n) => (
-              <div key={n} className="h-32 animate-pulse rounded-2xl border border-[#E4E6F2] bg-white p-5" />
+              <div key={n} className="h-36 animate-pulse rounded-2xl border border-[#E4E6F2] bg-white p-5" />
             ))}
           </div>
         ) : (
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-2xl border border-[#E4E6F2] bg-white p-5 shadow-card">
-              <p className="text-[13px] font-medium text-[#5B5F7A]">Citas del día</p>
-              <p className="mt-2 text-[28px] font-bold text-[#1E1B4B] tabular-nums">
-                {metrics.dayCount}
+            {/* KPI 1: Violeta */}
+            <article className="rounded-2xl border border-[#E4E6F2] bg-white p-5 shadow-card">
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EDE9FE] text-[#6D28D9]">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                    <path d="M8 2v3m8-3v3M3 9h18M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
+                  </svg>
+                </span>
+                <span
+                  className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums ${
+                    metrics.countDiff >= 0
+                      ? 'bg-[#DCFCE7] text-[#15803D]'
+                      : 'bg-[#FEE2E2] text-[#B91C1C]'
+                  }`}
+                >
+                  {metrics.countDiff >= 0 ? `+${metrics.countDiff}` : metrics.countDiff}{' '}
+                  {metrics.comparisonLabel}
+                </span>
+              </div>
+              <p className="mt-4 text-[13px] font-normal text-[#5B5F7A]">Citas del periodo</p>
+              <p className="mt-1 text-[32px] leading-none font-semibold text-[#1E1B4B] tabular-nums">
+                {metrics.periodCount}
               </p>
-              <p
-                className={`mt-1 text-[13px] font-semibold ${
-                  metrics.countDiff >= 0 ? 'text-[#15803D]' : 'text-[#B91C1C]'
-                }`}
-              >
-                {metrics.countDiff >= 0 ? `+${metrics.countDiff}` : metrics.countDiff} vs. ayer
-              </p>
-            </div>
+            </article>
 
-            <div className="rounded-2xl border border-[#E4E6F2] bg-white p-5 shadow-card">
-              <p className="text-[13px] font-medium text-[#5B5F7A]">Ingresos estimados hoy</p>
-              <p className="mt-2 text-[28px] font-bold text-[#1E1B4B] tabular-nums">
-                {formatCop(metrics.dayRevenue)}
+            {/* KPI 2: Verde */}
+            <article className="rounded-2xl border border-[#E4E6F2] bg-white p-5 shadow-card">
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#DCFCE7] text-[#15803D]">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                    <path d="M12 2v20m5-16H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                  </svg>
+                </span>
+                <span
+                  className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums ${
+                    metrics.revenueDiff >= 0
+                      ? 'bg-[#DCFCE7] text-[#15803D]'
+                      : 'bg-[#FEE2E2] text-[#B91C1C]'
+                  }`}
+                >
+                  {metrics.revenueDiff >= 0 ? '+' : ''}
+                  {formatCop(metrics.revenueDiff)}
+                </span>
+              </div>
+              <p className="mt-4 text-[13px] font-normal text-[#5B5F7A]">Ingresos estimados</p>
+              <p className="mt-1 text-[32px] leading-none font-semibold text-[#1E1B4B] tabular-nums">
+                {formatCop(metrics.periodRevenue)}
               </p>
-              <p
-                className={`mt-1 text-[13px] font-semibold tabular-nums ${
-                  metrics.revenueDiff >= 0 ? 'text-[#15803D]' : 'text-[#B91C1C]'
-                }`}
-              >
-                {metrics.revenueDiff >= 0
-                  ? `+${formatCop(metrics.revenueDiff)}`
-                  : formatCop(metrics.revenueDiff)}{' '}
-                vs. ayer
-              </p>
-            </div>
+            </article>
 
-            <div className="rounded-2xl border border-[#E4E6F2] bg-white p-5 shadow-card">
-              <p className="text-[13px] font-medium text-[#5B5F7A]">Vehículos en proceso</p>
-              <p className="mt-2 text-[28px] font-bold text-[#6D28D9] tabular-nums">
+            {/* KPI 3: Ámbar */}
+            <article className="rounded-2xl border border-[#E4E6F2] bg-white p-5 shadow-card">
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FEF3C7] text-[#B45309]">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                    <path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11m-14 0h14v6a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H8v1a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-6Z" />
+                  </svg>
+                </span>
+                <span
+                  className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums ${
+                    metrics.readyCount >= 0
+                      ? 'bg-[#DCFCE7] text-[#15803D]'
+                      : 'bg-[#FEE2E2] text-[#B91C1C]'
+                  }`}
+                >
+                  {metrics.readyCount} listos
+                </span>
+              </div>
+              <p className="mt-4 text-[13px] font-normal text-[#5B5F7A]">Vehículos en proceso</p>
+              <p className="mt-1 text-[32px] leading-none font-semibold text-[#1E1B4B] tabular-nums">
                 {metrics.inProcessCount}
               </p>
-              <p className="mt-1 text-[13px] text-[#5B5F7A]">{metrics.inProcessBreakdown}</p>
-            </div>
+            </article>
 
-            <div className="rounded-2xl border border-[#E4E6F2] bg-white p-5 shadow-card">
-              <p className="text-[13px] font-medium text-[#5B5F7A]">Servicio más pedido</p>
-              <p className="mt-2 truncate text-[20px] font-bold text-[#1E1B4B]">
+            {/* KPI 4: Azul */}
+            <article className="rounded-2xl border border-[#E4E6F2] bg-white p-5 shadow-card">
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#DBEAFE] text-[#1D4ED8]">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                    <path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8L12 3Z" />
+                  </svg>
+                </span>
+                <span
+                  className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums ${
+                    metrics.topServiceCount > 0
+                      ? 'bg-[#DCFCE7] text-[#15803D]'
+                      : 'bg-[#FEE2E2] text-[#B91C1C]'
+                  }`}
+                >
+                  {metrics.topServiceCount} citas
+                </span>
+              </div>
+              <p className="mt-4 text-[13px] font-normal text-[#5B5F7A]">Servicio más pedido</p>
+              <p
+                title={metrics.topServiceName}
+                className="mt-1 truncate text-[32px] leading-none font-semibold text-[#1E1B4B]"
+              >
+                {metrics.topServiceCount > 0 ? metrics.topServiceCount : '0'}
+              </p>
+              <p className="mt-1.5 truncate text-xs font-normal text-[#5B5F7A]">
                 {metrics.topServiceName}
               </p>
-              <p className="mt-1 text-[13px] font-semibold text-[#4F46E5] tabular-nums">
-                {metrics.topServiceCount} citas registradas
-              </p>
-            </div>
+            </article>
           </section>
         )}
 
-        {/* Gráficas: Ingresos de la semana + Servicios por tipo */}
+        {/* Gráficas con estados vacíos claros */}
         <section className="grid gap-6 lg:grid-cols-12">
           <div className="rounded-2xl border border-[#E4E6F2] bg-white p-6 shadow-card lg:col-span-7">
             <div className="flex items-center justify-between">
               <h2 className="text-[18px] font-semibold text-[#1E1B4B]">Ingresos últimos 7 días</h2>
-              <span className="text-[13px] font-medium text-[#5B5F7A]">Cifras en COP</span>
+              <span className="text-[13px] font-normal text-[#5B5F7A]">COP</span>
             </div>
-            <div className="mt-6 flex h-48 items-end gap-3">
-              {metrics.weekly.map((day) => {
-                const heightPct = Math.max(8, Math.round((day.total * 100) / metrics.maxWeek))
-                const isSelected = day.key === selectedDate
-                return (
-                  <div key={day.key} className="flex flex-1 flex-col items-center gap-2">
-                    <span className="text-[11px] font-semibold text-[#5B5F7A] tabular-nums">
-                      {day.total > 0 ? `$${Math.round(day.total / 1000)}k` : '$0'}
-                    </span>
-                    <div className="flex h-32 w-full items-end">
-                      <div
-                        style={{ height: `${heightPct}%` }}
-                        className={`w-full rounded-t-xl transition-all ${
-                          isSelected
-                            ? 'bg-gradient-to-t from-[#4F46E5] to-[#8B5CF6]'
-                            : 'bg-[#4F46E5]/25 hover:bg-[#4F46E5]/50'
+
+            {!metrics.hasWeeklyRevenue ? (
+              <div className="mt-6 flex h-48 flex-col items-center justify-center rounded-xl border border-dashed border-[#E4E6F2] bg-[#F5F6FB]/50 px-6 text-center">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[#5B5F7A] shadow-xs">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                    <path d="M4 20h16M7 16v-5m5 5V7m5 9v-8" />
+                  </svg>
+                </span>
+                <p className="mt-3 text-sm font-semibold text-[#1E1B4B]">
+                  Aún no hay ingresos esta semana
+                </p>
+                <p className="mt-1 text-xs font-normal text-[#5B5F7A]">
+                  Los ingresos diarios aparecerán aquí cuando se registren servicios.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-6 flex h-48 items-end gap-3">
+                {metrics.weekly.map((day) => {
+                  const heightPct = day.total > 0 ? Math.max(12, Math.round((day.total * 100) / metrics.maxWeek)) : 6
+                  const isToday = day.key === metrics.todayKey
+                  return (
+                    <div key={day.key} className="flex flex-1 flex-col items-center gap-2">
+                      <span className="text-[11px] font-semibold text-[#5B5F7A] tabular-nums">
+                        {day.total > 0 ? `$${Math.round(day.total / 1000)}k` : ''}
+                      </span>
+                      <div className="flex h-32 w-full items-end">
+                        <div
+                          style={{ height: `${heightPct}%` }}
+                          className={`w-full rounded-t-xl transition-all ${
+                            isToday
+                              ? 'bg-[#4F46E5]'
+                              : day.total > 0
+                                ? 'bg-[#4F46E5]/30 hover:bg-[#4F46E5]/55'
+                                : 'bg-[#E4E6F2]/60'
+                          }`}
+                        />
+                      </div>
+                      <span
+                        className={`text-xs uppercase ${
+                          isToday ? 'font-semibold text-[#4F46E5]' : 'font-normal text-[#5B5F7A]'
                         }`}
-                      />
+                      >
+                        {day.label}
+                      </span>
                     </div>
-                    <span
-                      className={`text-xs uppercase ${
-                        isSelected ? 'font-bold text-[#4F46E5]' : 'font-medium text-[#5B5F7A]'
-                      }`}
-                    >
-                      {day.label}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           <div className="rounded-2xl border border-[#E4E6F2] bg-white p-6 shadow-card lg:col-span-5">
             <h2 className="text-[18px] font-semibold text-[#1E1B4B]">Servicios por tipo</h2>
             {metrics.serviceBreakdown.length === 0 ? (
-              <p className="mt-6 text-sm text-[#5B5F7A]">Aún no hay citas registradas.</p>
+              <div className="mt-6 flex h-48 flex-col items-center justify-center rounded-xl border border-dashed border-[#E4E6F2] bg-[#F5F6FB]/50 px-6 text-center">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[#5B5F7A] shadow-xs">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                    <path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8L12 3Z" />
+                  </svg>
+                </span>
+                <p className="mt-3 text-sm font-semibold text-[#1E1B4B]">
+                  Aún no hay servicios en este periodo
+                </p>
+                <Link
+                  to="/appointments?new=1"
+                  className="mt-4 inline-flex h-[44px] items-center justify-center rounded-xl bg-[#4F46E5] px-4 text-xs font-semibold text-white transition hover:bg-[#4338CA]"
+                >
+                  Crear primera cita
+                </Link>
+              </div>
             ) : (
               <div className="mt-5 space-y-4">
                 {metrics.serviceBreakdown.map((srv) => (
                   <div key={srv.name} className="space-y-1.5">
                     <div className="flex items-center justify-between text-[14px]">
-                      <span className="font-medium text-[#1E1B4B]">{srv.name}</span>
+                      <span className="font-semibold text-[#1E1B4B]">{srv.name}</span>
                       <span className="font-semibold text-[#5B5F7A] tabular-nums">
                         {srv.count} ({srv.pct}%)
                       </span>
@@ -326,7 +485,7 @@ export function DashboardPage() {
                     <div className="h-2.5 overflow-hidden rounded-full bg-[#F5F6FB]">
                       <div
                         style={{ width: `${srv.pct}%` }}
-                        className="h-full rounded-full bg-gradient-to-r from-[#4F46E5] to-[#8B5CF6]"
+                        className="h-full rounded-full bg-[#4F46E5]"
                       />
                     </div>
                   </div>
@@ -348,7 +507,7 @@ export function DashboardPage() {
           {metrics.upcoming.length === 0 ? (
             <div className="rounded-xl border border-dashed border-[#E4E6F2] p-8 text-center">
               <p className="text-[15px] font-semibold text-[#1E1B4B]">Sin citas pendientes por atender</p>
-              <p className="mt-1 text-sm text-[#5B5F7A]">
+              <p className="mt-1 text-sm font-normal text-[#5B5F7A]">
                 Cuando ingresen nuevas reservas aparecerán aquí automáticamente.
               </p>
             </div>
@@ -360,14 +519,14 @@ export function DashboardPage() {
                   className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E4E6F2] p-3.5 transition hover:bg-[#F5F6FB]/70"
                 >
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className="rounded-lg border border-[#1E1B4B] bg-[#FEF08A] px-2.5 py-0.5 font-mono text-xs font-extrabold text-[#1E1B4B]">
+                    <span className="rounded-lg border border-[#1E1B4B] bg-[#FEF08A] px-2.5 py-0.5 font-mono text-xs font-semibold text-[#1E1B4B]">
                       {item.vehiclePlate || '---'}
                     </span>
                     <div>
                       <p className="text-[14px] font-semibold text-[#1E1B4B]">
-                        {item.customerName} · {item.serviceTypeName}
+                        {item.customerName} · {item.serviceTypeName || item.serviceName}
                       </p>
-                      <p className="text-[12px] text-[#5B5F7A]">
+                      <p className="text-[12px] font-normal text-[#5B5F7A]">
                         {formatTime(item.dateTime)} · Especialista: {item.employeeName}
                       </p>
                     </div>

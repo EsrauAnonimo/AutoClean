@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { AppointmentStatusBadge } from '../components/AppointmentStatusBadge'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
@@ -73,7 +74,8 @@ export function AppointmentsPage() {
   const [employeeFilter, setEmployeeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
-  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [searchParams] = useSearchParams()
+  const [showCreateModal, setShowCreateModal] = useState(() => searchParams.get('new') === '1')
   const [deliverConfirmTarget, setDeliverConfirmTarget] = useState(null)
   const [form, setForm] = useState(INITIAL_FORM)
 
