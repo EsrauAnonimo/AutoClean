@@ -36,6 +36,25 @@ export async function updateAppointmentStatus(id, status) {
 }
 
 /**
+ * Lista las citas asociadas exclusivamente a un cliente específico.
+ */
+export async function getAppointmentsByCustomer(customerId) {
+  if (!customerId) {
+    throw new Error('El identificador del cliente es obligatorio para consultar sus citas.')
+  }
+  const { data } = await api.get('/appointments', { params: { customerId } })
+  return data
+}
+
+/**
+ * Cancela una cita pendiente del cliente mediante PATCH /api/appointments/{id}/cancel.
+ */
+export async function cancelAppointment(id) {
+  const { data } = await api.patch(`/appointments/${id}/cancel`)
+  return data
+}
+
+/**
  * Elimina una cita por su identificador.
  */
 export async function deleteAppointment(id) {
