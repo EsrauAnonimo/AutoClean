@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { AutoCleanLogo } from '../components/AutoCleanLogo'
+import { AuthHeroPanel } from '../components/AuthHeroPanel'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { useAuth } from '../context/AuthContext'
@@ -55,26 +55,7 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F6FB] lg:grid lg:grid-cols-12">
-      {/* Panel izquierdo Índigo oscuro (Desktop) + Header gradiente (Móvil) */}
-      <div className="flex flex-col justify-between bg-gradient-to-br from-[#1E1B4B] via-[#312E81] to-[#4F46E5] px-6 py-8 text-white lg:col-span-5 lg:p-12">
-        <AutoCleanLogo size="lg" subtitle="Detailing & Car Care" />
-
-        <div className="my-6 space-y-4 lg:my-0">
-          <span className="inline-flex rounded-full bg-[#8B5CF6]/30 px-3 py-1 text-xs font-semibold text-indigo-100">
-            Lavado y Detailing Premium
-          </span>
-          <h1 className="text-[28px] leading-[34px] font-bold tracking-tight lg:text-4xl lg:leading-tight">
-            Tu vehículo impecable, con seguimiento en tiempo real.
-          </h1>
-          <p className="text-[15px] text-indigo-100/90">
-            Agenda en menos de un minuto con tu placa, revisa el avance de tu servicio en vivo y paga en efectivo al finalizar.
-          </p>
-        </div>
-
-        <p className="hidden text-[13px] text-indigo-200 lg:block">
-          Horario de atención: 7:00 a. m. – 12:00 p. m. y 2:30 p. m. – 9:00 p. m.
-        </p>
-      </div>
+      <AuthHeroPanel variant="login" />
 
       {/* Formulario derecho */}
       <div className="flex items-center justify-center px-4 py-8 sm:px-8 lg:col-span-7">

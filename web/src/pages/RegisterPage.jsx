@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { AutoCleanLogo } from '../components/AutoCleanLogo'
+import { AuthHeroPanel } from '../components/AuthHeroPanel'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { useAuth } from '../context/AuthContext'
@@ -74,16 +74,7 @@ export function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F6FB] lg:grid lg:grid-cols-12">
-      <div className="flex flex-col justify-between bg-gradient-to-br from-[#1E1B4B] via-[#312E81] to-[#4F46E5] px-6 py-8 text-white lg:col-span-5 lg:p-12">
-        <AutoCleanLogo size="lg" subtitle="Portal de Clientes" />
-        <div className="my-6 space-y-3 lg:my-0">
-          <h1 className="text-[28px] leading-[34px] font-bold">Crea tu cuenta de cliente</h1>
-          <p className="text-[15px] text-indigo-100/90">
-            Registra tus vehículos una sola vez, agenda citas por placa y sigue cada etapa desde tu celular.
-          </p>
-        </div>
-        <p className="hidden text-[13px] text-indigo-200 lg:block">Pago 100% en efectivo al finalizar.</p>
-      </div>
+      <AuthHeroPanel variant="register" />
 
       <div className="flex items-center justify-center px-4 py-8 sm:px-8 lg:col-span-7">
         <div className="w-full max-w-[460px] rounded-2xl border border-[#E4E6F2] bg-white p-6 shadow-card sm:p-8">
