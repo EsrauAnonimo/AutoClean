@@ -1,13 +1,15 @@
+import { Link } from 'react-router-dom'
 import { MainLayout } from '../components/MainLayout'
 import { useAuth } from '../context/AuthContext'
 
 const MODULES = [
-  { name: 'Clientes y Vehículos', status: 'API lista (/api/customers, /api/vehicles)' },
-  { name: 'Catálogo y Empleados', status: 'API lista (/api/service-types, /api/employees)' },
-  { name: 'Agenda de Citas', status: 'API lista (/api/appointments)' },
-  { name: 'Insumos', status: 'API lista (/api/supplies)' },
-  { name: 'Motor de Costeo', status: 'API lista (/api/costing/estimate)' },
-  { name: 'Reportes Gerenciales', status: 'API lista (/api/reports/services, /api/reports/revenue)' },
+  { name: 'Clientes y Vehículos', status: 'API lista (/api/customers, /api/vehicles)', to: null },
+  { name: 'Catálogo de Servicios', status: 'CRUD activo (/api/service-types)', to: '/catalog' },
+  { name: 'Empleados', status: 'CRUD activo (/api/employees)', to: '/employees' },
+  { name: 'Agenda de Citas', status: 'Agenda y estados (/api/appointments)', to: '/appointments' },
+  { name: 'Insumos', status: 'Inventario CRUD (/api/supplies)', to: '/supplies' },
+  { name: 'Motor de Costeo', status: 'API lista (/api/costing/estimate)', to: null },
+  { name: 'Reportes Gerenciales', status: 'API lista (/api/reports/services, /api/reports/revenue)', to: null },
 ]
 
 /**
@@ -32,15 +34,31 @@ export function DashboardPage() {
       </section>
 
       <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {MODULES.map((moduleItem) => (
-          <div
-            key={moduleItem.name}
-            className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs transition hover:border-sky-300"
-          >
-            <h3 className="text-sm font-semibold text-slate-900">{moduleItem.name}</h3>
-            <p className="mt-1 text-xs text-slate-500">{moduleItem.status}</p>
-          </div>
-        ))}
+        {MODULES.map((moduleItem) => {
+          const cardContent = (
+            <>
+              <h3 className="text-sm font-semibold text-slate-900">{moduleItem.name}</h3>
+              <p className="mt-1 text-xs text-slate-500">{moduleItem.status}</p>
+            </>
+          )
+
+          return moduleItem.to ? (
+            <Link
+              key={moduleItem.name}
+              to={moduleItem.to}
+              className="block rounded-xl border border-slate-200 bg-white p-5 shadow-xs transition hover:border-sky-400 hover:bg-sky-50/30"
+            >
+              {cardContent}
+            </Link>
+          ) : (
+            <div
+              key={moduleItem.name}
+              className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs"
+            >
+              {cardContent}
+            </div>
+          )
+        })}
       </section>
     </MainLayout>
   )
