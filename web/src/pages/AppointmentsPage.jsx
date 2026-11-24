@@ -10,15 +10,16 @@ import {
   createAppointment,
   deleteAppointment,
   getAppointments,
-  getCustomers,
-  getVehicles,
   updateAppointmentStatus,
   updateVehicleStatus,
 } from '../services/appointmentService'
 import { getEmployees, getServiceTypes } from '../services/catalogService'
-import { toLocalOffsetIsoString } from '../utils/dateTime'
+import { getCustomers } from '../services/customerService'
+import { getVehicles } from '../services/vehicleService'
+import { isWithinOperatingHours, toLocalOffsetIsoString } from '../utils/dateTime'
 import { getVehicleStatusMeta } from '../utils/vehicleStatus'
 import { showToast } from '../utils/toast'
+import { formatCop, formatDateTime } from '../utils/format'
 
 const INITIAL_FORM = {
   customerId: '',
@@ -35,32 +36,6 @@ const KANBAN_COLUMNS = [
 ]
 
 const IN_PROGRESS_STAGES = ['WASHING', 'DETAILING', 'READY']
-
-function formatDateTime(value) {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('es-CO', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date)
-}
-
-function formatCop(value) {
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    maximumFractionDigits: 0,
-  }).format(Number(value) || 0)
-}
-
-function isWithinOperatingHours(dateTimeString) {
-  if (!dateTimeString) return true
-  const d = new Date(dateTimeString)
-  if (Number.isNaN(d.getTime())) return false
-  const mins = d.getHours() * 60 + d.getMinutes()
-  return (mins >= 420 && mins <= 720) || (mins >= 870 && mins <= 1260)
-}
 
 /**
  * Agenda de Citas Admin: tablero Kanban (PENDIENTE -> EN PROCESO -> FINALIZADA)

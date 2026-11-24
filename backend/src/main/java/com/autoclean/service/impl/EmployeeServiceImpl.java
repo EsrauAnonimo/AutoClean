@@ -27,9 +27,6 @@ public class EmployeeServiceImpl implements EmployeeService {
      * @param employeeRepository repositorio Spring Data JPA
      */
     public EmployeeServiceImpl(EmployeeRepository employeeRepository) {
-        if (employeeRepository == null) {
-            throw new IllegalArgumentException("El repositorio de empleados no puede ser nulo");
-        }
         this.employeeRepository = employeeRepository;
     }
 

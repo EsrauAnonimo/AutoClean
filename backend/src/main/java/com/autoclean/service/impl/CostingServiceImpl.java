@@ -56,12 +56,6 @@ public class CostingServiceImpl implements CostingService {
             CostEstimateRepository costEstimateRepository,
             ServiceTypeRepository serviceTypeRepository,
             EntityManagerFactory entityManagerFactory) {
-        if (costEstimateRepository == null) {
-            throw new IllegalArgumentException("El repositorio de estimaciones no puede ser nulo");
-        }
-        if (serviceTypeRepository == null) {
-            throw new IllegalArgumentException("El repositorio de tipos de servicio no puede ser nulo");
-        }
         this.costEstimateRepository = costEstimateRepository;
         this.serviceTypeRepository = serviceTypeRepository;
         this.entityManagerFactory = entityManagerFactory;

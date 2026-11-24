@@ -6,8 +6,8 @@ import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { useAuth } from '../context/AuthContext'
 import { getHomeRouteByRole } from '../utils/authRedirect'
+import { EMAIL_REGEX } from '../utils/validation'
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /**
  * Pantalla de registro de clientes con estética móvil/desktop AutoClean.
@@ -33,7 +33,7 @@ export function RegisterPage() {
     if (!name.trim()) errors.name = 'El nombre completo es obligatorio.'
     if (!phone.trim()) errors.phone = 'El teléfono de contacto es obligatorio.'
     if (!email.trim()) errors.email = 'El correo electrónico es obligatorio.'
-    else if (!EMAIL_PATTERN.test(email.trim())) errors.email = 'El formato del correo es inválido.'
+    else if (!EMAIL_REGEX.test(email.trim())) errors.email = 'El formato del correo es inválido.'
     if (!password) errors.password = 'La contraseña es obligatoria.'
     else if (password.length < 6) errors.password = 'La contraseña debe tener al menos 6 caracteres.'
     return errors

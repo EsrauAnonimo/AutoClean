@@ -27,9 +27,6 @@ public class ServiceTypeServiceImpl implements ServiceTypeService {
      * @param serviceTypeRepository repositorio Spring Data JPA
      */
     public ServiceTypeServiceImpl(ServiceTypeRepository serviceTypeRepository) {
-        if (serviceTypeRepository == null) {
-            throw new IllegalArgumentException("El repositorio de tipos de servicio no puede ser nulo");
-        }
         this.serviceTypeRepository = serviceTypeRepository;
     }
 

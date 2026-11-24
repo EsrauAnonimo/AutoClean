@@ -74,10 +74,6 @@ public class AppointmentServiceImpl implements AppointmentService {
             VehicleRepository vehicleRepository,
             EmployeeRepository employeeRepository,
             ServiceTypeRepository serviceTypeRepository) {
-        if (appointmentRepository == null || customerRepository == null || vehicleRepository == null
-                || employeeRepository == null || serviceTypeRepository == null) {
-            throw new IllegalArgumentException("Todos los repositorios requeridos para citas deben estar presentes");
-        }
         this.appointmentRepository = appointmentRepository;
         this.customerRepository = customerRepository;
         this.vehicleRepository = vehicleRepository;
@@ -220,9 +216,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         }
 
         Appointment appointment = findExistingForMutation(appointmentId);
-        AppointmentStatus currentStatus = appointment.getStatus() != null
-                ? appointment.getStatus()
-                : AppointmentStatus.PENDING;
+        AppointmentStatus currentStatus = currentStatusOf(appointment);
 
         validateTransition(currentStatus, newStatus);
 
@@ -238,9 +232,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         }
 
         Appointment appointment = findExistingForMutation(appointmentId);
-        AppointmentStatus currentStatus = appointment.getStatus() != null
-                ? appointment.getStatus()
-                : AppointmentStatus.PENDING;
+        AppointmentStatus currentStatus = currentStatusOf(appointment);
 
         if (currentStatus != AppointmentStatus.PENDING) {
             throw new IllegalStateException(
@@ -344,6 +336,10 @@ public class AppointmentServiceImpl implements AppointmentService {
         if (!inMorningWindow && !inAfternoonWindow) {
             throw new IllegalArgumentException("Horario de atención: 7am-12pm y 2:30pm-9pm");
         }
+    }
+
+    private AppointmentStatus currentStatusOf(Appointment appointment) {
+        return appointment.getStatus() != null ? appointment.getStatus() : AppointmentStatus.PENDING;
     }
 
     private Appointment findExistingForMutation(UUID id) {

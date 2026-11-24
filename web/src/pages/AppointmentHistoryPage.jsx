@@ -14,6 +14,7 @@ import {
 } from '../services/appointmentService'
 import { showToast } from '../utils/toast'
 import { VEHICLE_STATUS_ORDER, getVehicleStatusMeta } from '../utils/vehicleStatus'
+import { formatDateTime } from '../utils/format'
 
 const POLLING_INTERVAL_MS = 10000
 
@@ -23,20 +24,6 @@ const STEP_DESCRIPTIONS = {
   DETAILING: 'Acabado fino, brillo y protección en proceso.',
   READY: 'Tu auto está listo para entrega. Acércate cuando gustes.',
   DELIVERED: 'Servicio completado y vehículo entregado.',
-}
-
-function formatDateTime(isoValue) {
-  if (!isoValue) {
-    return '—'
-  }
-  const date = new Date(isoValue)
-  if (Number.isNaN(date.getTime())) {
-    return isoValue
-  }
-  return new Intl.DateTimeFormat('es-CO', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date)
 }
 
 function formatTimeOnly(date) {

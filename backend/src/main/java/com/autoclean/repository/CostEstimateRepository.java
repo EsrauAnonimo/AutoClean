@@ -18,8 +18,5 @@ public interface CostEstimateRepository extends JpaRepository<CostEstimate, UUID
 
     @EntityGraph(attributePaths = {"serviceType", "appointment", "lines"})
     List<CostEstimate> findAllByOrderByCreatedAtDesc();
-
-    @EntityGraph(attributePaths = {"serviceType", "appointment", "lines"})
-    List<CostEstimate> findByAppointmentId(UUID appointmentId);
 }
 

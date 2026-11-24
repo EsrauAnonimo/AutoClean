@@ -4,8 +4,8 @@ import { getApiErrorMessage } from '../services/api'
 import { showToast } from '../utils/toast'
 import { Button } from './Button'
 import { Input } from './Input'
+import { PHONE_REGEX } from '../utils/validation'
 
-const PHONE_REGEX = /^[+]?[0-9\s\-()]{7,20}$/
 
 /**
  * Banner compacto "Completa tu perfil" con barra de progreso y acción única.

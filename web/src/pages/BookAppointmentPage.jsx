@@ -13,8 +13,9 @@ import {
 } from '../services/appointmentService'
 import { getEmployees, getServiceTypes } from '../services/catalogService'
 import { getVehicleByPlate, getVehiclesByCustomer } from '../services/vehicleService'
-import { toLocalOffsetIsoString } from '../utils/dateTime'
+import { isWithinOperatingHours, toLocalOffsetIsoString } from '../utils/dateTime'
 import { showToast } from '../utils/toast'
+import { formatCop } from '../utils/format'
 
 const STEPS = [
   { id: 1, label: 'Placa' },
@@ -50,19 +51,6 @@ function getTodayIsoDate() {
   const m = String(now.getMonth() + 1).padStart(2, '0')
   const d = String(now.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
-}
-
-function isWithinOperatingHours(dateObj) {
-  const mins = dateObj.getHours() * 60 + dateObj.getMinutes()
-  return (mins >= 420 && mins <= 720) || (mins >= 870 && mins <= 1260)
-}
-
-function formatCop(value) {
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    maximumFractionDigits: 0,
-  }).format(Number(value) || 0)
 }
 
 function formatReadableDateTime(dateStr, timeStr) {

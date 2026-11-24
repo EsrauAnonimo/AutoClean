@@ -24,9 +24,6 @@ public class SupplyServiceImpl implements SupplyService {
      * @param supplyRepository repositorio JPA de insumos
      */
     public SupplyServiceImpl(SupplyRepository supplyRepository) {
-        if (supplyRepository == null) {
-            throw new IllegalArgumentException("El repositorio de insumos no puede ser nulo");
-        }
         this.supplyRepository = supplyRepository;
     }
 

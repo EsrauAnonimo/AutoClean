@@ -9,20 +9,13 @@ import { getApiErrorMessage } from '../services/api'
 import { getAppointments } from '../services/appointmentService'
 import { getServiceTypes } from '../services/catalogService'
 import { getSupplies } from '../services/supplyService'
+import { formatCop } from '../utils/format'
 
 const PERIOD_OPTIONS = [
   { key: 'today', label: 'Hoy' },
   { key: 'week', label: 'Semana' },
   { key: 'month', label: 'Mes' },
 ]
-
-function formatCop(value) {
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    maximumFractionDigits: 0,
-  }).format(Number(value) || 0)
-}
 
 function getLocalDateKey(value) {
   if (!value) return ''
