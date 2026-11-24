@@ -10,6 +10,7 @@ import {
   updateCustomer,
 } from '../services/customerService'
 import { showToast } from '../utils/toast'
+import { EMAIL_REGEX, PHONE_REGEX } from '../utils/validation'
 
 const INITIAL_FORM = {
   name: '',
@@ -17,8 +18,6 @@ const INITIAL_FORM = {
   email: '',
 }
 
-const PHONE_REGEX = /^[+]?[0-9\s\-()]{7,20}$/
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PAGE_SIZE = 8
 
 /**

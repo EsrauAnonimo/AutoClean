@@ -7,6 +7,7 @@ import { getSupplies } from '../services/supplyService'
 import { showToast } from '../utils/toast'
 import { Button } from './Button'
 import { Input } from './Input'
+import { formatDateTime } from '../utils/format'
 
 function createEmptyLine() {
   return {
@@ -20,16 +21,6 @@ function formatCop(value) {
   const numeric = Number(value)
   if (Number.isNaN(numeric)) return '—'
   return `$${numeric.toLocaleString('es-CO')}`
-}
-
-function formatDateTime(value) {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('es-CO', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date)
 }
 
 /**

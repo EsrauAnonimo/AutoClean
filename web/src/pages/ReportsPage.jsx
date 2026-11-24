@@ -6,6 +6,7 @@ import { Input } from '../components/Input'
 import { MainLayout } from '../components/MainLayout'
 import { getApiErrorMessage } from '../services/api'
 import { getRevenueReport, getServicesReport } from '../services/reportService'
+import { formatDateTime } from '../utils/format'
 
 function getDefaultRange() {
   const now = new Date()
@@ -16,16 +17,6 @@ function getDefaultRange() {
     from: `${year}-${month}-01`,
     to: `${year}-${month}-${day}`,
   }
-}
-
-function formatDateTime(value) {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('es-CO', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date)
 }
 
 function formatMoney(value) {

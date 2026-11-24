@@ -17,3 +17,15 @@ export function toLocalOffsetIsoString(date) {
     date.getHours(),
   )}:${pad(date.getMinutes())}:${pad(date.getSeconds())}${sign}${offsetHours}:${offsetRemainder}`
 }
+
+/**
+ * Indica si una fecha (Date o ISO) cae en el horario de atención: 7:00–12:00 o 14:30–21:00.
+ * Un valor vacío se considera válido.
+ */
+export function isWithinOperatingHours(value) {
+  if (!value) return true
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return false
+  const mins = date.getHours() * 60 + date.getMinutes()
+  return (mins >= 420 && mins <= 720) || (mins >= 870 && mins <= 1260)
+}

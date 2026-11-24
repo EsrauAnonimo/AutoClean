@@ -50,12 +50,6 @@ public class ReportServiceImpl implements ReportService {
     public ReportServiceImpl(
             CostEstimateRepository costEstimateRepository,
             EntityManagerFactory entityManagerFactory) {
-        if (costEstimateRepository == null) {
-            throw new IllegalArgumentException("El repositorio de estimaciones de costo no puede ser nulo");
-        }
-        if (entityManagerFactory == null) {
-            throw new IllegalArgumentException("La fábrica de EntityManager no puede ser nula");
-        }
         this.costEstimateRepository = costEstimateRepository;
         this.entityManagerFactory = entityManagerFactory;
     }
@@ -91,12 +85,7 @@ public class ReportServiceImpl implements ReportService {
             rows.add(new String[]{id, customerName, serviceName, status, dateStr});
         }
 
-        if (rows.isEmpty()) {
-            return new ReportResult(NO_DATA_TITLE, LocalDateTime.now(), rows);
-        }
-
-        String title = "Servicios por periodo (" + from + " al " + to + ")";
-        return new ReportResult(title, LocalDateTime.now(), rows);
+        return buildResult("Servicios por periodo", from, to, rows);
     }
 
     @Override
@@ -129,11 +118,11 @@ public class ReportServiceImpl implements ReportService {
             }
         }
 
-        if (rows.isEmpty()) {
-            return new ReportResult(NO_DATA_TITLE, LocalDateTime.now(), rows);
-        }
+        return buildResult("Ingresos vs Costos", from, to, rows);
+    }
 
-        String title = "Ingresos vs Costos (" + from + " al " + to + ")";
+    private ReportResult buildResult(String titlePrefix, LocalDate from, LocalDate to, List<String[]> rows) {
+        String title = rows.isEmpty() ? NO_DATA_TITLE : titlePrefix + " (" + from + " al " + to + ")";
         return new ReportResult(title, LocalDateTime.now(), rows);
     }
 
