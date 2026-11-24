@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AppointmentStatusBadge } from '../components/AppointmentStatusBadge'
-import { CompleteCustomerProfileCard } from '../components/CompleteCustomerProfileCard'
-import { MainLayout } from '../components/MainLayout'
-import { VehicleStatusBadge } from '../components/VehicleStatusBadge'
-import { useAuth } from '../context/AuthContext'
-import { getAppointmentsByCustomer } from '../services/appointmentService'
-import { getVehiclesByCustomer } from '../services/vehicleService'
-import { VEHICLE_STATUS_ORDER, getVehicleStatusMeta } from '../utils/vehicleStatus'
+import { AppointmentStatusBadge } from '../../components/ui/AppointmentStatusBadge'
+import { CompleteCustomerProfileCard } from '../../components/auth/CompleteCustomerProfileCard'
+import { MainLayout } from '../../components/layout/MainLayout'
+import { VehicleStatusBadge } from '../../components/ui/VehicleStatusBadge'
+import { useAuth } from '../../context/AuthContext'
+import { getAppointmentsByCustomer } from '../../services/appointmentService'
+import { getVehiclesByCustomer } from '../../services/vehicleService'
+import { VEHICLE_STATUS_ORDER, getVehicleStatusMeta } from '../../utils/vehicleStatus'
 
 function formatShortDateTime(isoValue) {
   if (!isoValue) {

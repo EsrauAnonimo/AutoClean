@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { useAuth } from '../context/AuthContext'
-import { getApiErrorMessage } from '../services/api'
-import { showToast } from '../utils/toast'
-import { Button } from './Button'
-import { Input } from './Input'
-import { PHONE_REGEX } from '../utils/validation'
+import { useAuth } from '../../context/AuthContext'
+import { getApiErrorMessage } from '../../services/api'
+import { showToast } from '../../utils/toast'
+import { Button } from '../ui/Button'
+import { Input } from '../ui/Input'
+import { PHONE_REGEX } from '../../utils/validation'
 
 
 /**

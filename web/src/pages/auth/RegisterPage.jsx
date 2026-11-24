@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { AuthHeroPanel } from '../components/AuthHeroPanel'
-import { AutoCleanLogo } from '../components/AutoCleanLogo'
-import { Button } from '../components/Button'
-import { Input } from '../components/Input'
-import { useAuth } from '../context/AuthContext'
-import { getHomeRouteByRole } from '../utils/authRedirect'
-import { EMAIL_REGEX } from '../utils/validation'
+import { AuthHeroPanel } from '../../components/auth/AuthHeroPanel'
+import { AutoCleanLogo } from '../../components/ui/AutoCleanLogo'
+import { Button } from '../../components/ui/Button'
+import { Input } from '../../components/ui/Input'
+import { useAuth } from '../../context/AuthContext'
+import { getHomeRouteByRole } from '../../utils/authRedirect'
+import { EMAIL_REGEX } from '../../utils/validation'
 
 
 /**

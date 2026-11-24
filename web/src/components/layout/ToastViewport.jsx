@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { TOAST_EVENT } from '../utils/toast'
+import { TOAST_EVENT } from '../../utils/toast'
 
 const TOAST_STYLES = {
   success: {

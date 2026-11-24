@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Button } from '../components/Button'
-import { Input } from '../components/Input'
-import { MainLayout } from '../components/MainLayout'
-import { getApiErrorMessage } from '../services/api'
+import { Button } from '../../components/ui/Button'
+import { Input } from '../../components/ui/Input'
+import { MainLayout } from '../../components/layout/MainLayout'
+import { getApiErrorMessage } from '../../services/api'
 import {
   createCustomer,
   deleteCustomer,
   getCustomers,
   updateCustomer,
-} from '../services/customerService'
-import { showToast } from '../utils/toast'
-import { EMAIL_REGEX, PHONE_REGEX } from '../utils/validation'
+} from '../../services/customerService'
+import { showToast } from '../../utils/toast'
+import { EMAIL_REGEX, PHONE_REGEX } from '../../utils/validation'
 
 const INITIAL_FORM = {
   name: '',

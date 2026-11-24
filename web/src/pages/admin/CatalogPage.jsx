@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Button } from '../components/Button'
-import { Input } from '../components/Input'
-import { MainLayout } from '../components/MainLayout'
-import { getApiErrorMessage } from '../services/api'
+import { Button } from '../../components/ui/Button'
+import { Input } from '../../components/ui/Input'
+import { MainLayout } from '../../components/layout/MainLayout'
+import { getApiErrorMessage } from '../../services/api'
 import {
   createEmployee,
   createServiceType,
@@ -12,7 +12,7 @@ import {
   getServiceTypes,
   updateEmployee,
   updateServiceType,
-} from '../services/catalogService'
+} from '../../services/catalogService'
 
 const INITIAL_SERVICE_FORM = {
   name: '',

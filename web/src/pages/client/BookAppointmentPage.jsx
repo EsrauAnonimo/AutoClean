@@ -1,21 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Button } from '../components/Button'
-import { CompleteCustomerProfileCard } from '../components/CompleteCustomerProfileCard'
-import { MainLayout } from '../components/MainLayout'
-import { PlateInput } from '../components/PlateInput'
-import { useAuth } from '../context/AuthContext'
-import { getApiErrorMessage } from '../services/api'
+import { Button } from '../../components/ui/Button'
+import { CompleteCustomerProfileCard } from '../../components/auth/CompleteCustomerProfileCard'
+import { MainLayout } from '../../components/layout/MainLayout'
+import { PlateInput } from '../../components/vehicles/PlateInput'
+import { useAuth } from '../../context/AuthContext'
+import { getApiErrorMessage } from '../../services/api'
 import {
   createAppointment,
   getAppointmentsByCustomer,
   getOccupiedAppointmentSlots,
-} from '../services/appointmentService'
-import { getEmployees, getServiceTypes } from '../services/catalogService'
-import { getVehicleByPlate, getVehiclesByCustomer } from '../services/vehicleService'
-import { isWithinOperatingHours, toLocalOffsetIsoString } from '../utils/dateTime'
-import { showToast } from '../utils/toast'
-import { formatCop } from '../utils/format'
+} from '../../services/appointmentService'
+import { getEmployees, getServiceTypes } from '../../services/catalogService'
+import { getVehicleByPlate, getVehiclesByCustomer } from '../../services/vehicleService'
+import { isWithinOperatingHours, toLocalOffsetIsoString } from '../../utils/dateTime'
+import { showToast } from '../../utils/toast'
+import { formatCop } from '../../utils/format'
 
 const STEPS = [
   { id: 1, label: 'Placa' },

@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Button } from './Button'
-import { Input } from './Input'
+import { Button } from '../ui/Button'
+import { Input } from '../ui/Input'
 import { PlateInput } from './PlateInput'
 
 const MIN_VEHICLE_YEAR = 1900

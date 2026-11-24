@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Button } from '../components/Button'
-import { Input } from '../components/Input'
-import { MainLayout } from '../components/MainLayout'
-import { PlateInput } from '../components/PlateInput'
-import { getApiErrorMessage } from '../services/api'
-import { getCustomers } from '../services/customerService'
+import { Button } from '../../components/ui/Button'
+import { Input } from '../../components/ui/Input'
+import { MainLayout } from '../../components/layout/MainLayout'
+import { PlateInput } from '../../components/vehicles/PlateInput'
+import { getApiErrorMessage } from '../../services/api'
+import { getCustomers } from '../../services/customerService'
 import {
   createVehicle,
   deleteVehicle,
   getVehicles,
   updateVehicle,
-} from '../services/vehicleService'
-import { showToast } from '../utils/toast'
+} from '../../services/vehicleService'
+import { showToast } from '../../utils/toast'
 
 const INITIAL_FORM = {
   customerId: '',
