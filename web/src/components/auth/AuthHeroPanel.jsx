@@ -1,4 +1,4 @@
-import { AutoCleanLogo } from './AutoCleanLogo'
+import { AutoCleanLogo } from '../ui/AutoCleanLogo'
 
 const TRACKING_STEPS = [
   { label: 'Recibido', active: true },

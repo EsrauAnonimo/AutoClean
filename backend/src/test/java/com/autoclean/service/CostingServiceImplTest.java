@@ -17,11 +17,10 @@ import com.autoclean.model.Appointment;
 import com.autoclean.model.CostEstimate;
 import com.autoclean.model.CostLine;
 import com.autoclean.model.ServiceType;
+import com.autoclean.repository.AppointmentRepository;
 import com.autoclean.repository.CostEstimateRepository;
 import com.autoclean.repository.ServiceTypeRepository;
 import com.autoclean.service.impl.CostingServiceImpl;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
@@ -47,7 +46,7 @@ class CostingServiceImplTest {
     private ServiceTypeRepository serviceTypeRepository;
 
     @Mock
-    private EntityManagerFactory entityManagerFactory;
+    private AppointmentRepository appointmentRepository;
 
     private CostingServiceImpl costingService;
 
@@ -56,7 +55,7 @@ class CostingServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        costingService = new CostingServiceImpl(costEstimateRepository, serviceTypeRepository, entityManagerFactory);
+        costingService = new CostingServiceImpl(costEstimateRepository, serviceTypeRepository, appointmentRepository);
         serviceTypeId = UUID.randomUUID();
         serviceType = new ServiceType("Porcelanizado", "Detailing completo", new BigDecimal("150000.00"), 120);
         serviceType.setId(serviceTypeId);
@@ -121,9 +120,7 @@ class CostingServiceImplTest {
         Appointment appointment = new Appointment();
         appointment.setId(appointmentId);
 
-        EntityManager entityManager = mock(EntityManager.class);
-        when(entityManagerFactory.createEntityManager()).thenReturn(entityManager);
-        when(entityManager.find(Appointment.class, appointmentId)).thenReturn(appointment);
+        when(appointmentRepository.findById(appointmentId)).thenReturn(Optional.of(appointment));
         when(serviceTypeRepository.findById(serviceTypeId)).thenReturn(Optional.of(serviceType));
         when(costEstimateRepository.save(any(CostEstimate.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -192,9 +189,7 @@ class CostingServiceImplTest {
     @DisplayName("Rechaza una cita inexistente cuando se especifica appointmentId")
     void shouldRejectUnknownAppointmentId() {
         UUID missingAppointmentId = UUID.randomUUID();
-        EntityManager entityManager = mock(EntityManager.class);
-        when(entityManagerFactory.createEntityManager()).thenReturn(entityManager);
-        when(entityManager.find(Appointment.class, missingAppointmentId)).thenReturn(null);
+        when(appointmentRepository.findById(missingAppointmentId)).thenReturn(Optional.empty());
         when(serviceTypeRepository.findById(serviceTypeId)).thenReturn(Optional.of(serviceType));
 
         assertThrows(

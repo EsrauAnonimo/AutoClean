@@ -5,11 +5,9 @@ import com.autoclean.model.Appointment;
 import com.autoclean.model.CostEstimate;
 import com.autoclean.model.Customer;
 import com.autoclean.model.ServiceType;
+import com.autoclean.repository.AppointmentRepository;
 import com.autoclean.repository.CostEstimateRepository;
 import com.autoclean.service.ReportService;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
-import jakarta.persistence.TypedQuery;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -18,7 +16,6 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.orm.jpa.EntityManagerFactoryUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,28 +27,14 @@ public class ReportServiceImpl implements ReportService {
 
     public static final String NO_DATA_TITLE = "Sin datos en el periodo";
 
-    private static final String APPOINTMENTS_IN_RANGE_JPQL = """
-            SELECT a FROM Appointment a
-            JOIN FETCH a.customer
-            JOIN FETCH a.serviceType
-            WHERE a.dateTime >= :start AND a.dateTime <= :end
-            ORDER BY a.dateTime ASC
-            """;
-
+    private final AppointmentRepository appointmentRepository;
     private final CostEstimateRepository costEstimateRepository;
-    private final EntityManagerFactory entityManagerFactory;
 
-    /**
-     * Inyección por constructor del repositorio de estimaciones y fábrica JPA.
-     *
-     * @param costEstimateRepository repositorio de estimaciones de costo
-     * @param entityManagerFactory fábrica de gestores JPA para consultar citas con sus relaciones
-     */
     public ReportServiceImpl(
-            CostEstimateRepository costEstimateRepository,
-            EntityManagerFactory entityManagerFactory) {
+            AppointmentRepository appointmentRepository,
+            CostEstimateRepository costEstimateRepository) {
+        this.appointmentRepository = appointmentRepository;
         this.costEstimateRepository = costEstimateRepository;
-        this.entityManagerFactory = entityManagerFactory;
     }
 
     @Override
@@ -131,7 +114,8 @@ public class ReportServiceImpl implements ReportService {
         OffsetDateTime queryStart = from.minusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC);
         OffsetDateTime queryEnd = to.plusDays(1).atTime(LocalTime.MAX).atOffset(ZoneOffset.UTC);
 
-        List<Appointment> candidates = queryAppointments(queryStart, queryEnd);
+        List<Appointment> candidates =
+                appointmentRepository.findByDateTimeBetweenOrderByDateTimeAsc(queryStart, queryEnd);
         List<Appointment> inRange = new ArrayList<>();
         for (Appointment appointment : candidates) {
             if (appointment.getDateTime() != null) {
@@ -142,23 +126,6 @@ public class ReportServiceImpl implements ReportService {
             }
         }
         return inRange;
-    }
-
-    private List<Appointment> queryAppointments(OffsetDateTime start, OffsetDateTime end) {
-        EntityManager transactionalEm = EntityManagerFactoryUtils.getTransactionalEntityManager(entityManagerFactory);
-        if (transactionalEm != null) {
-            return executeAppointmentsQuery(transactionalEm, start, end);
-        }
-        try (EntityManager em = entityManagerFactory.createEntityManager()) {
-            return executeAppointmentsQuery(em, start, end);
-        }
-    }
-
-    private List<Appointment> executeAppointmentsQuery(EntityManager em, OffsetDateTime start, OffsetDateTime end) {
-        TypedQuery<Appointment> query = em.createQuery(APPOINTMENTS_IN_RANGE_JPQL, Appointment.class);
-        query.setParameter("start", start);
-        query.setParameter("end", end);
-        return query.getResultList();
     }
 
     private CostEstimate findEstimateForAppointment(Appointment appointment, List<CostEstimate> estimates) {

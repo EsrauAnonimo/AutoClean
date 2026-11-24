@@ -1,4 +1,4 @@
-import { getVehicleStatusMeta } from '../utils/vehicleStatus'
+import { getVehicleStatusMeta } from '../../utils/vehicleStatus'
 
 /**
  * Badge con ícono minimalista para el estado operativo en vivo del vehículo.

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { getAppointments } from '../services/appointmentService'
-import { getSupplies } from '../services/supplyService'
-import { getHomeRouteByRole } from '../utils/authRedirect'
-import { showToast } from '../utils/toast'
-import { AutoCleanLogo } from './AutoCleanLogo'
+import { useAuth } from '../../context/AuthContext'
+import { getAppointments } from '../../services/appointmentService'
+import { getSupplies } from '../../services/supplyService'
+import { getHomeRouteByRole } from '../../utils/authRedirect'
+import { showToast } from '../../utils/toast'
+import { AutoCleanLogo } from '../ui/AutoCleanLogo'
 
 const ADMIN_NAV_GROUPS = [
   {

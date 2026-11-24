@@ -1,20 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AppointmentStatusBadge } from '../components/AppointmentStatusBadge'
-import { Button } from '../components/Button'
-import { CompleteCustomerProfileCard } from '../components/CompleteCustomerProfileCard'
-import { MainLayout } from '../components/MainLayout'
-import { VehicleStatusBadge } from '../components/VehicleStatusBadge'
-import { useAuth } from '../context/AuthContext'
-import { getApiErrorMessage } from '../services/api'
+import { AppointmentStatusBadge } from '../../components/ui/AppointmentStatusBadge'
+import { Button } from '../../components/ui/Button'
+import { CompleteCustomerProfileCard } from '../../components/auth/CompleteCustomerProfileCard'
+import { MainLayout } from '../../components/layout/MainLayout'
+import { VehicleStatusBadge } from '../../components/ui/VehicleStatusBadge'
+import { useAuth } from '../../context/AuthContext'
+import { getApiErrorMessage } from '../../services/api'
 import {
   cancelAppointment,
   getAppointmentById,
   getAppointmentsByCustomer,
-} from '../services/appointmentService'
-import { showToast } from '../utils/toast'
-import { VEHICLE_STATUS_ORDER, getVehicleStatusMeta } from '../utils/vehicleStatus'
-import { formatDateTime } from '../utils/format'
+} from '../../services/appointmentService'
+import { showToast } from '../../utils/toast'
+import { VEHICLE_STATUS_ORDER, getVehicleStatusMeta } from '../../utils/vehicleStatus'
+import { formatDateTime } from '../../utils/format'
 
 const POLLING_INTERVAL_MS = 10000
 

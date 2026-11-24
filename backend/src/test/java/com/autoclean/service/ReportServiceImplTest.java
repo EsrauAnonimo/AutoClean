@@ -4,9 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.autoclean.dto.report.ReportResult;
@@ -18,11 +15,9 @@ import com.autoclean.model.Customer;
 import com.autoclean.model.Employee;
 import com.autoclean.model.ServiceType;
 import com.autoclean.model.Vehicle;
+import com.autoclean.repository.AppointmentRepository;
 import com.autoclean.repository.CostEstimateRepository;
 import com.autoclean.service.impl.ReportServiceImpl;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
-import jakarta.persistence.TypedQuery;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -43,16 +38,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class ReportServiceImplTest {
 
     @Mock
-    private CostEstimateRepository costEstimateRepository;
+    private AppointmentRepository appointmentRepository;
 
     @Mock
-    private EntityManagerFactory entityManagerFactory;
+    private CostEstimateRepository costEstimateRepository;
 
     private ReportServiceImpl reportService;
 
     @BeforeEach
     void setUp() {
-        reportService = new ReportServiceImpl(costEstimateRepository, entityManagerFactory);
+        reportService = new ReportServiceImpl(appointmentRepository, costEstimateRepository);
     }
 
     @Test
@@ -157,14 +152,8 @@ class ReportServiceImplTest {
         assertThrows(IllegalArgumentException.class, () -> reportService.revenueVsCost(null, null));
     }
 
-    @SuppressWarnings("unchecked")
     private void mockAppointmentsQuery(List<Appointment> result) {
-        EntityManager entityManager = mock(EntityManager.class);
-        TypedQuery<Appointment> query = mock(TypedQuery.class);
-        when(entityManagerFactory.createEntityManager()).thenReturn(entityManager);
-        when(entityManager.createQuery(anyString(), eq(Appointment.class))).thenReturn(query);
-        when(query.setParameter(anyString(), any())).thenReturn(query);
-        when(query.getResultList()).thenReturn(result);
+        when(appointmentRepository.findByDateTimeBetweenOrderByDateTimeAsc(any(), any())).thenReturn(result);
     }
 
     private Appointment buildAppointment(

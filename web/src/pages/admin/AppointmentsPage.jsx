@@ -1,25 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { AppointmentStatusBadge } from '../components/AppointmentStatusBadge'
-import { Button } from '../components/Button'
-import { Input } from '../components/Input'
-import { MainLayout } from '../components/MainLayout'
-import { VehicleStatusBadge } from '../components/VehicleStatusBadge'
-import { getApiErrorMessage } from '../services/api'
+import { AppointmentStatusBadge } from '../../components/ui/AppointmentStatusBadge'
+import { Button } from '../../components/ui/Button'
+import { Input } from '../../components/ui/Input'
+import { MainLayout } from '../../components/layout/MainLayout'
+import { VehicleStatusBadge } from '../../components/ui/VehicleStatusBadge'
+import { getApiErrorMessage } from '../../services/api'
 import {
   createAppointment,
   deleteAppointment,
   getAppointments,
   updateAppointmentStatus,
   updateVehicleStatus,
-} from '../services/appointmentService'
-import { getEmployees, getServiceTypes } from '../services/catalogService'
-import { getCustomers } from '../services/customerService'
-import { getVehicles } from '../services/vehicleService'
-import { isWithinOperatingHours, toLocalOffsetIsoString } from '../utils/dateTime'
-import { getVehicleStatusMeta } from '../utils/vehicleStatus'
-import { showToast } from '../utils/toast'
-import { formatCop, formatDateTime } from '../utils/format'
+} from '../../services/appointmentService'
+import { getEmployees, getServiceTypes } from '../../services/catalogService'
+import { getCustomers } from '../../services/customerService'
+import { getVehicles } from '../../services/vehicleService'
+import { isWithinOperatingHours, toLocalOffsetIsoString } from '../../utils/dateTime'
+import { getVehicleStatusMeta } from '../../utils/vehicleStatus'
+import { showToast } from '../../utils/toast'
+import { formatCop, formatDateTime } from '../../utils/format'
 
 const INITIAL_FORM = {
   customerId: '',

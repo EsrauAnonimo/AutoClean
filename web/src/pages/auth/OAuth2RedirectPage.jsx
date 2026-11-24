@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { getHomeRouteByRole } from '../utils/authRedirect'
+import { useAuth } from '../../context/AuthContext'
+import { getHomeRouteByRole } from '../../utils/authRedirect'
 
 /**
  * Callback del frontend que recibe ?token= tras el login con Google,

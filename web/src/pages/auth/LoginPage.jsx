@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { AuthHeroPanel } from '../components/AuthHeroPanel'
-import { AutoCleanLogo } from '../components/AutoCleanLogo'
-import { Button } from '../components/Button'
-import { Input } from '../components/Input'
-import { useAuth } from '../context/AuthContext'
-import { BACKEND_BASE_URL } from '../services/api'
-import { getHomeRouteByRole } from '../utils/authRedirect'
+import { AuthHeroPanel } from '../../components/auth/AuthHeroPanel'
+import { AutoCleanLogo } from '../../components/ui/AutoCleanLogo'
+import { Button } from '../../components/ui/Button'
+import { Input } from '../../components/ui/Input'
+import { useAuth } from '../../context/AuthContext'
+import { BACKEND_BASE_URL } from '../../services/api'
+import { getHomeRouteByRole } from '../../utils/authRedirect'
 
 const GOOGLE_AUTH_URL = `${BACKEND_BASE_URL}/oauth2/authorization/google`
 

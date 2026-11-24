@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { getHomeRouteByRole } from '../utils/authRedirect'
+import { useAuth } from '../../context/AuthContext'
+import { getHomeRouteByRole } from '../../utils/authRedirect'
 
 /**
  * Protege rutas privadas redirigiendo al login si no hay JWT y validando roles permitidos.

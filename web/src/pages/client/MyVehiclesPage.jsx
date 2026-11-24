@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button } from '../components/Button'
-import { CompleteCustomerProfileCard } from '../components/CompleteCustomerProfileCard'
-import { MainLayout } from '../components/MainLayout'
-import { VehicleForm } from '../components/VehicleForm'
-import { useAuth } from '../context/AuthContext'
-import { getApiErrorMessage } from '../services/api'
+import { Button } from '../../components/ui/Button'
+import { CompleteCustomerProfileCard } from '../../components/auth/CompleteCustomerProfileCard'
+import { MainLayout } from '../../components/layout/MainLayout'
+import { VehicleForm } from '../../components/vehicles/VehicleForm'
+import { useAuth } from '../../context/AuthContext'
+import { getApiErrorMessage } from '../../services/api'
 import {
   createVehicle,
   deleteVehicle,
   getVehiclesByCustomer,
   updateVehicle,
-} from '../services/vehicleService'
-import { showToast } from '../utils/toast'
+} from '../../services/vehicleService'
+import { showToast } from '../../utils/toast'
 
 /**
  * Pantalla Mis Vehículos del Portal del Cliente (mobile-first).
