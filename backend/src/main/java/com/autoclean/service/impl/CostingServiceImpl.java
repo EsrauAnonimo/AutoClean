@@ -8,17 +8,14 @@ import com.autoclean.model.Appointment;
 import com.autoclean.model.CostEstimate;
 import com.autoclean.model.CostLine;
 import com.autoclean.model.ServiceType;
+import com.autoclean.repository.AppointmentRepository;
 import com.autoclean.repository.CostEstimateRepository;
 import com.autoclean.repository.ServiceTypeRepository;
 import com.autoclean.service.CostingService;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.orm.jpa.EntityManagerFactoryUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,35 +27,15 @@ public class CostingServiceImpl implements CostingService {
 
     private final CostEstimateRepository costEstimateRepository;
     private final ServiceTypeRepository serviceTypeRepository;
-    private final EntityManagerFactory entityManagerFactory;
+    private final AppointmentRepository appointmentRepository;
 
-    /**
-     * Constructor principal usado en pruebas unitarias sin resolución JPA de citas.
-     *
-     * @param costEstimateRepository repositorio JPA de estimaciones de costo
-     * @param serviceTypeRepository repositorio JPA de tipos de servicio
-     */
-    public CostingServiceImpl(
-            CostEstimateRepository costEstimateRepository,
-            ServiceTypeRepository serviceTypeRepository) {
-        this(costEstimateRepository, serviceTypeRepository, null);
-    }
-
-    /**
-     * Inyección por constructor utilizada por Spring Boot en ejecución completa.
-     *
-     * @param costEstimateRepository repositorio JPA de estimaciones de costo
-     * @param serviceTypeRepository repositorio JPA de tipos de servicio
-     * @param entityManagerFactory fábrica de gestores JPA para resolver citas opcionales sin acoplarse a otro módulo
-     */
-    @Autowired
     public CostingServiceImpl(
             CostEstimateRepository costEstimateRepository,
             ServiceTypeRepository serviceTypeRepository,
-            EntityManagerFactory entityManagerFactory) {
+            AppointmentRepository appointmentRepository) {
         this.costEstimateRepository = costEstimateRepository;
         this.serviceTypeRepository = serviceTypeRepository;
-        this.entityManagerFactory = entityManagerFactory;
+        this.appointmentRepository = appointmentRepository;
     }
 
     @Override
@@ -155,24 +132,8 @@ public class CostingServiceImpl implements CostingService {
         if (appointmentId == null) {
             return null;
         }
-        if (entityManagerFactory == null) {
-            throw new IllegalStateException("No hay EntityManagerFactory configurado para resolver la cita: " + appointmentId);
-        }
-        EntityManager transactionalEm = EntityManagerFactoryUtils.getTransactionalEntityManager(entityManagerFactory);
-        if (transactionalEm != null) {
-            return findAppointmentOrThrow(transactionalEm, appointmentId);
-        }
-        try (EntityManager em = entityManagerFactory.createEntityManager()) {
-            return findAppointmentOrThrow(em, appointmentId);
-        }
-    }
-
-    private Appointment findAppointmentOrThrow(EntityManager em, UUID appointmentId) {
-        Appointment found = em.find(Appointment.class, appointmentId);
-        if (found == null) {
-            throw new IllegalArgumentException("No se encontró la cita con identificador: " + appointmentId);
-        }
-        return found;
+        return appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "No se encontró la cita con identificador: " + appointmentId));
     }
 }
-
