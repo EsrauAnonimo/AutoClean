@@ -2,6 +2,7 @@ package com.autoclean.repository;
 
 import com.autoclean.model.Appointment;
 import com.autoclean.model.AppointmentStatus;
+import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -33,5 +34,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
 
     @EntityGraph(attributePaths = {"customer", "vehicle", "employee", "serviceType"})
     List<Appointment> findByStatusIn(Collection<AppointmentStatus> statuses);
-}
 
+    @EntityGraph(attributePaths = {"customer", "serviceType"})
+    List<Appointment> findByDateTimeBetweenOrderByDateTimeAsc(OffsetDateTime start, OffsetDateTime end);
+}
