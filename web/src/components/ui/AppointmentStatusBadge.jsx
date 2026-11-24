@@ -34,3 +34,4 @@ export function AppointmentStatusBadge({ status }) {
     </span>
   )
 }
+
