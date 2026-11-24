@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from '../../components/ui/Button'
+import { Pagination } from '../../components/ui/Pagination'
 import { Input } from '../../components/ui/Input'
 import { MainLayout } from '../../components/layout/MainLayout'
 import { getApiErrorMessage } from '../../services/api'
@@ -11,6 +12,7 @@ import {
 } from '../../services/customerService'
 import { showToast } from '../../utils/toast'
 import { EMAIL_REGEX, PHONE_REGEX } from '../../utils/validation'
+import { usePagination } from '../../hooks/usePagination'
 
 const INITIAL_FORM = {
   name: '',
@@ -18,7 +20,6 @@ const INITIAL_FORM = {
   email: '',
 }
 
-const PAGE_SIZE = 8
 
 /**
  * Gestión de clientes (Admin): buscador, paginación, tabla moderna y modal crear/editar.
@@ -26,7 +27,6 @@ const PAGE_SIZE = 8
 export function CustomersPage() {
   const [customers, setCustomers] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
 
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState(null)
@@ -66,12 +66,7 @@ export function CustomersPage() {
     )
   }, [customers, searchQuery])
 
-  const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / PAGE_SIZE))
-  const safePage = Math.min(currentPage, totalPages)
-  const paginatedCustomers = useMemo(() => {
-    const start = (safePage - 1) * PAGE_SIZE
-    return filteredCustomers.slice(start, start + PAGE_SIZE)
-  }, [filteredCustomers, safePage])
+  const { page, setPage, totalPages, pageItems: paginatedCustomers } = usePagination(filteredCustomers)
 
   const openCreateModal = () => {
     setEditingId(null)
@@ -216,7 +211,7 @@ export function CustomersPage() {
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value)
-                setCurrentPage(1)
+                setPage(1)
               }}
               className="h-11 w-full rounded-xl border border-[#E4E6F2] bg-[#F5F6FB]/70 pr-3.5 pl-10 text-sm text-[#1E1B4B] placeholder:text-[#5B5F7A]/70 focus:border-[#4F46E5] focus:bg-white focus:ring-2 focus:ring-[#4F46E5]/15 focus:outline-none"
             />
@@ -301,31 +296,7 @@ export function CustomersPage() {
                 </table>
               </div>
 
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between border-t border-[#E4E6F2] px-5 py-3 text-xs text-[#5B5F7A]">
-                  <span className="tabular-nums">
-                    Página {safePage} de {totalPages}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="secondary"
-                      className="h-9 px-3 text-xs"
-                      disabled={safePage <= 1}
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    >
-                      Anterior
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      className="h-9 px-3 text-xs"
-                      disabled={safePage >= totalPages}
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    >
-                      Siguiente
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <Pagination page={page} totalPages={totalPages} onChange={setPage} />
             </>
           )}
         </section>
